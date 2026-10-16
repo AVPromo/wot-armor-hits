@@ -1,0 +1,8 @@
+[
+    {
+        "type": "Layout",
+        "id": "R.mods.sagtary_armor_hits.views.FooterButton",
+        "path": "coui://gui/gameface/mods/sagtary_armor_hits/FooterButton/FooterButton.html",
+        "parameters": {"entrance": "FooterButton", "impl": "gameface"}
+    }
+]

@@ -1,0 +1,25 @@
+.armorHitsButton {
+    margin-right: 6rem;
+    width: 24rem;
+    height: 24rem;
+    cursor: pointer;
+    background-image: url(img://gui/maps/sagtary_armor_hits/icon.png);
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.85;
+    transition: opacity 0.2s ease;
+}
+
+.mediaMediumWidth .armorHitsButton {
+    width: 32rem;
+    height: 32rem;
+}
+
+.armorHitsButton:hover {
+    opacity: 1;
+}
+
+.armorHitsButton:active {
+    opacity: 0.6;
+}
