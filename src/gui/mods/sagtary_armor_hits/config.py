@@ -9,6 +9,9 @@ DEFAULT_SETTINGS = {
     'useModsList': True,
 }
 
+# Battle records (one JSON Lines file per battle), relative to the game folder.
+RECORDS_DIR = 'mods/sagtary_armor_hits/battles'
+
 # Id of the entry in the mods list (ModsList API, optional).
 LOBBY_BUTTON_ID = 'sagtary_armor_hits'
 # Path in the game resources; the file is resources/gui/maps/sagtary_armor_hits/icon.png in this repo.

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <!-- The hits screen. The page is transparent and covers the whole screen, so the 3D hangar shows through it.
+             The lobby draws the page header (the hangar button, the title, the wallet) and the footer over it.
+             For now the panels of the design (the "Armor Hits Core" artifact) are only marked out, without content. -->
+        <title>Armor Hits</title>
+        <link rel="stylesheet" href="HitsView.css" />
+    </head>
+    <body>
+        <div class="hitsView">
+            <div class="hitsView__content">
+                <div class="hitsView__left">
+                    <div class="layout layout__battle">Battle</div>
+                    <div class="layout layout__hits">Hits: tabs, targets, result filter, hit N of M, list</div>
+                </div>
+                <div class="hitsView__right">
+                    <div class="layout layout__overlay">Overlay type</div>
+                    <div class="layout layout__shot">Shooter, vehicle, shell, result, sections</div>
+                </div>
+                <div class="layout layout__lines">Lines, shooter view</div>
+            </div>
+        </div>
+        <script type="module" src="HitsView.js"></script>
+    </body>
+</html>

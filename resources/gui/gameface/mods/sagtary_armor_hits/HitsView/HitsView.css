@@ -1,0 +1,104 @@
+/* The hits screen. 1rem is one interface pixel (the client sets the root font size to the interface scale). */
+:root {
+    --external-padding-top: 64rem;
+    --external-padding-bottom: 48rem;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    background-color: transparent;
+}
+
+.hitsView {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    font-family: Warhelios;
+    color: #e6e1d6;
+    /* The shading of the client's armor page (vehicle_hub main.css, Page_base__armor): dark at the bottom under the
+       footer, on the right side, and in the corners, fading out to the scene. */
+    background:
+        linear-gradient(to top, rgba(29, 35, 39, 0.8) 20rem, transparent 150rem),
+        linear-gradient(to right, transparent 55%, rgba(29, 35, 39, 0.5) 90%),
+        linear-gradient(150deg, rgba(29, 35, 39, 0.8) 17%, transparent 50%) left top/520rem 320rem no-repeat,
+        linear-gradient(30deg, rgba(29, 35, 39, 0.8) 15%, transparent 50%) left bottom/470rem 303rem no-repeat,
+        linear-gradient(330deg, rgba(29, 35, 39, 0.8) 15%, transparent 50%) right bottom/470rem 303rem no-repeat;
+}
+
+/* The common content area: the screen without the header and the footer, with the side offsets of the client's pages. */
+.hitsView__content {
+    position: absolute;
+    top: calc(var(--external-padding-top) + 16rem);
+    right: 32rem;
+    bottom: calc(var(--external-padding-bottom) + 16rem);
+    left: 32rem;
+}
+
+.hitsView__left {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 440rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.hitsView__right {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 364rem;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Layout marks: plain boxes for the panels of the design, without their content. */
+.layout {
+    box-sizing: border-box;
+    padding: 6rem 8rem;
+    border: 1rem solid #000000;
+    font-size: 12rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.layout__battle {
+    height: 64rem;
+    flex-shrink: 0;
+    background-color: rgba(60, 120, 200, 0.35);
+}
+
+.layout__hits {
+    flex-grow: 1;
+    margin-top: 12rem;
+    background-color: rgba(60, 170, 110, 0.35);
+}
+
+.layout__overlay {
+    height: 110rem;
+    flex-shrink: 0;
+    background-color: rgba(200, 160, 50, 0.35);
+}
+
+.layout__shot {
+    flex-grow: 1;
+    margin-top: 8rem;
+    background-color: rgba(200, 80, 60, 0.35);
+}
+
+/* The bottom bar: lines (all or current) and the shooter view toggle, in the middle of the scene. */
+.layout__lines {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: 360rem;
+    height: 68rem;
+    margin-left: -180rem;
+    background-color: rgba(150, 90, 200, 0.35);
+}

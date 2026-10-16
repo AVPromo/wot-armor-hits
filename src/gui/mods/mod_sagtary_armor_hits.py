@@ -6,6 +6,8 @@ Entry point loaded by the game; the code is in the gui.mods.sagtary_armor_hits p
 import logging
 
 from gui.mods.sagtary_armor_hits import settings
+from gui.mods.sagtary_armor_hits.battle_recorder import BattleRecorder
+from gui.mods.sagtary_armor_hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.lobby_button import LobbyButton
 
 __version__ = '0.1.0'
@@ -14,15 +16,20 @@ _logger = logging.getLogger('sagtary.armor_hits')
 
 
 def _openViewer():
-    # The viewer screen is not there yet.
+    # The mod's own hits screen; only the layout of its panels for now.
     _logger.info('lobby button clicked')
+    _hitsScreen.open()
 
 
+_battleRecorder = BattleRecorder()
+_hitsScreen = HitsScreen()
 _button = LobbyButton(_openViewer)
 
 
 def init():
     # Called by gui.mods after all mods are imported.
+    _battleRecorder.install()
+    _hitsScreen.install()
     _button.add(settings.load()['useModsList'])
     _logger.info('init v%s', __version__)
 
@@ -30,3 +37,5 @@ def init():
 def fini():
     # Called by gui.mods when the client shuts down.
     _button.remove()
+    _battleRecorder.uninstall()
+    _hitsScreen.uninstall()

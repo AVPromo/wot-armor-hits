@@ -4,5 +4,11 @@
         "id": "R.mods.sagtary_armor_hits.views.FooterButton",
         "path": "coui://gui/gameface/mods/sagtary_armor_hits/FooterButton/FooterButton.html",
         "parameters": {"entrance": "FooterButton", "impl": "gameface"}
+    },
+    {
+        "type": "Layout",
+        "id": "R.mods.sagtary_armor_hits.views.HitsView",
+        "path": "coui://gui/gameface/mods/sagtary_armor_hits/HitsView/HitsView.html",
+        "parameters": {"entrance": "HitsView", "impl": "gameface"}
     }
 ]

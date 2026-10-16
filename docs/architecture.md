@@ -33,15 +33,16 @@ Now:
 | `lobby_button.py`    | the hangar button that opens the viewer; picks one of the two below  |
 | `mods_list_entry.py` | entry in the ModsList API mods list (optional)                       |
 | `footer_button.py`   | button of its own in the hangar footer, next to the game menu button |
+| `hits_screen.py`     | the mod's own hits screen over the 3D hangar, a page of the lobby navigation; for now only the layout of its panels, the hangar shows no vehicle while it is open |
+| `battle_recorder.py` | raw record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/battles/` |
 
 Planned, as the features come (after Poliroid's Battle Hits, which does the same job):
 
 | Part              | Will do                                                                     |
 |-------------------|-----------------------------------------------------------------------------|
-| battle recording  | in battle, collect the hits received and dealt: shell, point, angle, result |
 | storage           | keep the hits of the last battles between sessions                          |
 | hangar scene      | show the vehicle in the hangar with the hit points on its armor             |
-| viewer screen     | list of battles and hits; opened by the lobby button                        |
+| viewer screen     | list of battles and hits on the hits screen                                 |
 
 ## Lobby button
 
@@ -69,6 +70,34 @@ name. So `FooterButton.js` is loaded into the footer page by OpenWG Gameface (`g
 client's `gui/gameface/js/index.js`, which every Gameface page loads). The script puts the button before the menu
 button and calls the view model's `onClick` command. ModsList API and Aslain's Mod Menu add their buttons the same
 way.
+
+## Hits screen
+
+The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleHubWindow`):
+
+- a Scaleform view setting (`ViewSettings`, alias `sagtaryArmorHitsView`, layer `SUB_VIEW`) whose class is a Gameface
+  window (`WindowImpl`); it is added to `IGuiLoader.entitiesFactory` when the lobby app initializes;
+- the window's content is a Gameface view (`ViewComponent`) with the layout `R.mods.sagtary_armor_hits.views.HitsView`;
+  the page is transparent, so the 3D hangar shows through it;
+- a lobby state (`SFViewLobbyState`, child of `SubScopeSubLayerState`) is added to the lobby state machine
+  (`AppLifeCycleEvent.INITIALIZING`, `addStateConfigurator`); entering it fires a `LOAD_VIEW` event for the alias, and
+  the mod loads the view (`app.loadView`), as the client's package business handlers do;
+- the lobby draws its header and footer as opaque bars ("old style", CSS class `base__oldStyle` with a background
+  pattern) around a sub view in a frame, and the window then gets only the space between them; the Flash lobby page
+  (`LobbyPageSubContainer.onViewVisibilityChanged`) leaves a view out of the frame when its wrapper reports
+  `isFullScreenModeSupported`, which a Gameface page sets with `viewEnv.setFullscreenModeSupported(true)`;
+  `HitsView.js` does that, like the armor page, and puts `viewEnv.getExternalPaddingsRem()` (the space of the header
+  and the footer, updated on `self.onPaddingsUpdated`) into the CSS variables `--external-padding-*`;
+- the page draws the armor page's shading itself (`Page_base__armor` in `vehicle_hub/main/main.css`) over the whole
+  screen, so the dark fade under the footer comes from the page, not from the footer;
+- the state has no `LobbyStateFlags.HANGAR` flag: the lobby header picks its type by that flag, and without it shows the
+  page header (hangar button, page title, wallet) instead of the full hangar header; the hangar button closes the
+  screen;
+- entering the state removes the vehicle from the hangar (`IHangarSpace.removeVehicle`), leaving it puts the current
+  vehicle back (`g_currentVehicle.refreshModel`).
+
+The armor overlay of the client's armor screen is a CGF component (`ArmorInspectorComponent`) put on the hangar
+vehicle, so the hits screen can show it without the Vehicle Hub.
 
 ## Logging
 

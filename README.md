@@ -2,7 +2,13 @@
 
 A World of Tanks mod for the hangar: see where you were hit in battle and where you hit the enemies.
 
-Work in progress. Now the mod only adds the **Armor Hits** button to the hangar; a click writes a line to `game.log`.
+Work in progress. Now the mod:
+
+- adds the **Armor Hits** button to the hangar; it opens the mod's own screen over the 3D hangar (so far only the
+  layout of its panels, the hangar shows no vehicle while it is open);
+- records every battle (and replay): each call from the server about shots and damage is written to a JSON Lines file
+  in `<game>/mods/sagtary_armor_hits/battles/`, one file per battle. The files are not deleted by the mod, and they
+  hold the names, account ids and clans of the players of the battle.
 
 ## Requirements
 
