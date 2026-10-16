@@ -1,0 +1,23 @@
+# Python 2.7 bytecode (built by the build script, never committed)
+*.pyc
+*.pyo
+
+# Build output
+build/
+*.wotmod
+
+# Logs (e.g. a copied game.log)
+*.log
+
+# Editors and local tool settings
+.vscode/
+.idea/
+.claude/settings.local.json
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Reference copy of Poliroid's Battle Hits (third-party, not part of this repo)
+battle-hits-master/
