@@ -41,7 +41,7 @@ Data, without UI (`data/`):
 | Module                    | Does                                                                         |
 |---------------------------|------------------------------------------------------------------------------|
 | `data/record.py`          | `Record`: a plain data object with fields and defaults (`FIELDS`) and nested records (`NESTED`), written to and read from a dict; the base of `Battle` and `Hit` |
-| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects; its result like the client's damage log: damage, critical, blocked), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`) |
+| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects, the points the shell hit as `HitPoint`s, the other vehicle's compact descriptor; its result like the client's damage log: damage, critical, blocked), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`) |
 | `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays, and its winner on `onRoundFinished`) |
 | `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`, `vehicleId`), so a battle from a file shows in the current client language |
 | `data/battle_file.py`     | the battles written to a JSON file and read back (`BattleFile`), for the developer tools; the file has `formatVersion` (its layout) and `appVersion` (the mod that wrote it) |
@@ -58,6 +58,8 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
+| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way as thin models in the 3D scene over the hangar vehicle |
+| `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
 | `views/hits/dev_tools.py`                 | presenter of the developer tools: Import reads the battles file into the `BattleStore`, Export writes the store to it; the result is a system message |
 | `views/lobby_button/lobby_button.py`      | the hangar button that opens the screen; picks one of the two below |
 | `views/lobby_button/mods_list_entry.py`   | entry in the ModsList API mods list (optional)               |
@@ -136,10 +138,25 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   when the screen opens and stays when the vehicle changes;
 - the hangar shows the vehicle the hits panel shows the hits on, as the preview vehicle like on the Vehicle Hub
   (`g_currentPreviewVehicle.selectVehicle`): the player's vehicle of the battle on the received side, the vehicle of
-  the chosen hit on the dealt side (the copied vehicle for a maps training dummy), no vehicle when the dealt side
-  has no hits (`HangarSpace.removeVehicle`). A battle keeps the vehicle types
-  only, so a vehicle not in the garage has its default modules. Closing the screen shows the current vehicle again
-  (`selectNoVehicle`);
+  the chosen hit on the dealt side (the copied vehicle for a maps training dummy), no vehicle when there is none
+  to show: no battles, no hits on the dealt side (`HangarSpace.removeVehicle`). The vehicle has the modules it had in the battle (the compact
+  descriptor kept in `Battle.vehicleDescr` and `Hit.vehicleDescr`), as the hit points are on them; a battle recorded
+  without it shows the default modules. Closing the screen shows the current vehicle again (`selectNoVehicle`);
+- the chosen hit is drawn in the 3D scene over that vehicle (`hit_lines.py`). The hit points are in the space of
+  their parts (`DamageFromShotDecoder.parseHitPoint`: the part and the shell's way through it); a point is the middle
+  of that way and the shell's direction is along it, like the Battle Hits mod does, put into the scene by the part's
+  node (the node the client puts the hit effects on). The vehicle's collision model is used only for the armor's
+  normal at a last ricochet: it comes a few frames after the vehicle and answers with wrong points before that.
+  When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
+  the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
+  `onVehicleChangeStarted` and on another hit. Each piece of the way is dashed white and red, 10 cm a dash; a dash is
+  the mod's line model of its color (`res/content/sagtary_armor_hits/line_<color>.model`, made by
+  `tools/make_line_model.py`: a tube with the client's glow shader and a texture of one color, like the lines of the
+  Battle Hits mod) stretched by a `Servo` matrix to 18 mm thick, so the vehicle hides what is behind it. The way:
+  2.5 m before the first point; on to the next point after a ricochet or spaced armor; 1.5 m out of a last ricochet
+  in the mirrored direction; none after a penetration; only the first point for a high explosive shell (its other
+  points are what the burst hit). Tried before: a Gameface overlay projected every frame (thin and colored, but flat,
+  over the vehicle) and the client's cube `objects/misc/bbox/unit_cube_1m_proxy.model` (lit, of one bluish color);
 - the page passes the mouse over the scene to the hangar camera like the client's `SceneWrapper`: a layer under the
   panels sends drags (`dx`, `dy` in pixels) and wheel steps (`dz` of 600) to `onMoveSpace`, which fires
   `CameraRelatedEvents.LOBBY_VIEW_MOUSE_MOVE`, and `onMouseOver3dScene` fires `NOTIFY_CURSOR_OVER_3DSCENE`; the

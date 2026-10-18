@@ -3,10 +3,11 @@
 
 HangarVehiclePresenter puts the vehicle into the hangar like the client's Vehicle Hub does, as the preview vehicle
 (g_currentPreviewVehicle): on the received side the player's vehicle of the battle, on the dealt side the vehicle of
-the chosen hit. A battle keeps the vehicle types only, so a vehicle not in the player's garage has its default
-modules; a vehicle in the garage is shown as it is there, with its camouflage. When the dealt side has no hits, the
-hangar shows no vehicle (HangarSpace.removeVehicle, as the client's vehicle preview does before it loads its own).
-When the screen closes, the hangar shows the current vehicle again.
+the chosen hit. The vehicle has the modules it had in the battle (its compact descriptor), as the hit points are on
+them; a battle recorded without it shows the default modules. A vehicle in the garage has its camouflage. Without a
+vehicle to show (no battles, no hits on the dealt side, a vehicle the client does not have) the hangar is empty
+(HangarSpace.removeVehicle, as the client's vehicle preview does before it loads its own). When the screen closes, the
+hangar shows the current vehicle again.
 """
 import logging
 
@@ -18,6 +19,7 @@ from skeletons.gui.shared.utils import IHangarSpace
 
 from gui.mods.sagtary_armor_hits.data.client_names import shownVehicleId
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import DEALT
+from gui.mods.sagtary_armor_hits.views.hits.scene_log import sceneState
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -25,15 +27,31 @@ _logger = logging.getLogger('sagtary.armor_hits')
 _NO_VEHICLE = 'none'
 
 
-def _vehicleId(battle, side, hit):
-    # The intCD of the vehicle the hits are on, _NO_VEHICLE when the dealt side has no hits, None without a battle.
-    if battle is None:
+def _shownVehicle(vehicleId, descr):
+    # (intCD, compact descriptor or None) to show; a maps training dummy is shown as the vehicle it copies, with
+    # the default modules of that one.
+    shownId = shownVehicleId(vehicleId)
+    if shownId is None:
         return None
+    return shownId, descr.decode('hex') if descr and shownId == vehicleId else None
+
+
+def hitsVehicle(battle, side, hit):
+    # The vehicle the hits are on: (intCD, compact descriptor or None); _NO_VEHICLE without one: no battle, no hits on
+    # the dealt side, a vehicle the client does not have.
+    if battle is None:
+        return _NO_VEHICLE
     if side == DEALT:
         if hit is None:
             return _NO_VEHICLE
-        return shownVehicleId(hit.vehicleId) or _NO_VEHICLE
-    return shownVehicleId(battle.vehicleId)
+        return _shownVehicle(hit.vehicleId, hit.vehicleDescr) or _NO_VEHICLE
+    return _shownVehicle(battle.vehicleId, battle.vehicleDescr) or _NO_VEHICLE
+
+
+def _vehicleText(vehicle):
+    if isinstance(vehicle, tuple):
+        return '%s%s' % (vehicle[0], ' with modules' if vehicle[1] else '')
+    return str(vehicle)
 
 
 class HangarVehiclePresenter(object):
@@ -42,8 +60,11 @@ class HangarVehiclePresenter(object):
 
     def __init__(self, hitsPanel):
         self._hitsPanel = hitsPanel
-        # What the presenter shows: an intCD, _NO_VEHICLE, or None while the hangar shows the current vehicle.
-        self._vehicleId = None
+        # What the presenter shows: (intCD, compact descriptor or None), _NO_VEHICLE, or None before it has shown
+        # anything (the hangar shows the current vehicle).
+        self._vehicle = None
+        # The last vehicle put into the hangar.
+        self._lastShown = None
 
     def init(self):
         self._hitsPanel.onChanged += self._update
@@ -52,9 +73,9 @@ class HangarVehiclePresenter(object):
     def fini(self):
         self._hitsPanel.onChanged -= self._update
         self._hitsPanel = None
-        if self._vehicleId is None:
+        if self._vehicle is None:
             return
-        self._vehicleId = None
+        self._vehicle = None
         try:
             if g_currentPreviewVehicle.isPresent():
                 g_currentPreviewVehicle.selectNoVehicle()
@@ -64,29 +85,44 @@ class HangarVehiclePresenter(object):
             _logger.exception('hangar vehicle: cannot show the current vehicle')
 
     def _update(self):
-        vehicleId = _vehicleId(*self._hitsPanel.selection)
-        if vehicleId is None or vehicleId == self._vehicleId:
+        vehicle = hitsVehicle(*self._hitsPanel.selection)
+        if vehicle == self._vehicle:
+            _logger.info('scene: hangar vehicle stays (wanted %s)', _vehicleText(vehicle))
             return
-        _logger.info('hangar vehicle: %s', vehicleId)
-        self._vehicleId = vehicleId
+        previous, self._vehicle = self._vehicle, vehicle
+        _logger.info('scene: hangar vehicle %s, was %s: %s', _vehicleText(vehicle), _vehicleText(previous),
+                     sceneState())
         try:
-            if vehicleId == _NO_VEHICLE:
+            if vehicle == _NO_VEHICLE:
+                _logger.info('scene: hangar vehicle: removeVehicle')
                 self.__hangarSpace.removeVehicle()
             else:
-                self._show(vehicleId)
+                self._show(vehicle, previous)
         except Exception:
-            _logger.exception('hangar vehicle: cannot show %s', vehicleId)
+            _logger.exception('hangar vehicle: cannot show %s', vehicle)
 
-    def _show(self, vehicleId):
+    def _show(self, vehicle, previous):
         # The client's Vehicle Hub (_VehicleHubStatesObserver.__setupPreviewTank); no dark background behind the
         # loading spinner, as the screen stays.
-        vehicle = self.__itemsCache.items.getItemByCD(vehicleId)
-        strCD, outfit = None, None
-        if vehicle.isInInventory:
-            season = g_tankActiveCamouflage.get(vehicle.intCD, vehicle.getAnyOutfitSeason())
-            strCD, outfit = vehicle.strCD, vehicle.getOutfit(season)
+        vehicleId, strCD = vehicle
+        item = self.__itemsCache.items.getItemByCD(vehicleId)
+        outfit = None
+        if item.isInInventory:
+            season = g_tankActiveCamouflage.get(item.intCD, item.getAnyOutfitSeason())
+            outfit = item.getOutfit(season)
+            strCD = strCD or item.strCD
         if g_currentPreviewVehicle.intCD == vehicleId:
-            # Still the preview vehicle, its model removed for no hits: the client does not load the same one again.
-            self.__hangarSpace.updatePreviewVehicle(g_currentPreviewVehicle.item, outfit, showWaitingBg=False)
-        else:
-            g_currentPreviewVehicle.selectVehicle(vehicleId, vehicleStrCD=strCD, outfit=outfit, showWaitingBg=False)
+            if previous == _NO_VEHICLE and self._lastShown == vehicle:
+                # Still the preview vehicle, its model removed for no hits: the client does not load the same
+                # vehicle again by itself.
+                _logger.info('scene: hangar vehicle: updatePreviewVehicle of the preview vehicle')
+                self.__hangarSpace.updatePreviewVehicle(g_currentPreviewVehicle.item, outfit, showWaitingBg=False)
+                return
+            # The same vehicle with other modules: the client loads it again only after another selection.
+            _logger.info('scene: hangar vehicle: selectNoVehicle first, same vehicle with other modules')
+            g_currentPreviewVehicle.selectNoVehicle()
+        self._lastShown = vehicle
+        _logger.info('scene: hangar vehicle: selectVehicle %s, modules %s, in garage %s', vehicleId, bool(strCD),
+                     item.isInInventory)
+        g_currentPreviewVehicle.selectVehicle(vehicleId, vehicleStrCD=strCD, outfit=outfit, showWaitingBg=False)
+        _logger.info('scene: hangar vehicle: selectVehicle done: %s', sceneState())

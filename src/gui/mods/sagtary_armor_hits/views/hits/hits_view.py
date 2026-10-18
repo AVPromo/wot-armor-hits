@@ -11,8 +11,8 @@ HitsView.js, like the client's armor page, and places its content by the externa
 header and the footer.
 
 The page passes mouse drags and the wheel over the 3D scene to the hangar camera (onMoveSpace, onMouseOver3dScene),
-like the client's SceneWrapper, so the camera turns around the vehicle. The panels and the hangar vehicle have
-presenters of their own, made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
+like the client's SceneWrapper, so the camera turns around the vehicle. The panels, the hangar vehicle and the hit
+lines in the scene have presenters of their own, made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
 the view is given a battle file (config.DEV_TOOLS).
 """
 from frameworks.wulf import WindowFlags
@@ -26,7 +26,9 @@ from gui.mods.sagtary_armor_hits.lang import text
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
 from gui.mods.sagtary_armor_hits.views.hits.dev_tools import DevToolsPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import HangarVehiclePresenter
+from gui.mods.sagtary_armor_hits.views.hits.hit_lines import HitLinesPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
+from gui.mods.sagtary_armor_hits.views.hits.scene_log import SceneLog
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
 
 # Alias of the Scaleform view setting of the screen.
@@ -48,6 +50,8 @@ class HitsView(ViewComponent):
     def _onLoading(self, *args, **kwargs):
         super(HitsView, self)._onLoading(*args, **kwargs)
         model = self.getViewModel()
+        # The scene's log first: it logs the client's events while the others set the scene up.
+        self._presenters.append(SceneLog())
         battleSelector = BattleSelectorPresenter(model.battleSelector, self._battleStore, {
             'empty': text('battles/empty')})
         self._presenters.append(battleSelector)
@@ -57,6 +61,8 @@ class HitsView(ViewComponent):
         self._presenters.append(hitsPanel)
         # The hangar shows the vehicle the hits panel shows the hits on.
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
+        # The chosen hit is drawn over that vehicle.
+        self._presenters.append(HitLinesPresenter(hitsPanel))
         if self._battleFile is not None:
             self._presenters.append(DevToolsPresenter(model.devTools, self._battleStore, self._battleFile))
         for presenter in self._presenters:

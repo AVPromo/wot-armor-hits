@@ -4,6 +4,10 @@
 - Hit: one hit, read from the client when the server tells about it (Vehicle.showDamageFromShot for a shell that hit,
   Vehicle.showDamageFromExplosion for a high explosive splash). It keeps what the server sent; its result is worked
   out from that, like in the client's damage log: damage, a critical hit without damage, or blocked.
+- HitPoint: one point a shell hit (a shell that ricochets or goes through spaced armor hits more than one): the
+  vehicle part and the shell's way through its armor, as the server sends it (DamageFromShotDecoder.parseHitPoint).
+  The points are in the part's own space, so they are drawn on the same vehicle with the same modules, whatever the
+  turret and the gun angles: the hit keeps the other vehicle's compact descriptor for that.
 - HitCollector: adds the hits of the battle the player is in to its Battle in the BattleStore: receivedHits (the
   player's vehicle was hit) and dealtHits (the player's vehicle hit another one). The client knows the hits on the
   vehicles it sees, so all the player's hits are there, and the hits on the player's vehicle. The client's battle
@@ -19,6 +23,7 @@ from constants import ARENA_PERIOD, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_E
 from PlayerEvents import g_playerEvents
 from Vehicle import Vehicle
 from VehicleEffects import DamageFromShotDecoder
+from vehicle_systems.tankStructure import TankPartIndexes
 
 from gui.mods.sagtary_armor_hits.data.record import Record
 
@@ -36,10 +41,25 @@ class HitResult(object):
 _CRITICAL_EFFECTS = (VEHICLE_HIT_EFFECT.CRITICAL_HIT, VEHICLE_HIT_EFFECT.ARMOR_PIERCED_DEVICE_DAMAGED)
 
 
+# Decimals of the hit point coordinates in metres: the server sends them to about 1 cm.
+_POINT_DECIMALS = 3
+
+
+class HitPoint(Record):
+    FIELDS = (
+        ('part', 0),            # the vehicle part (tankStructure.TankPartIndexes: chassis 0, hull 1, turret 2, gun 3)
+        ('start', ()),          # (x, y, z) of the shell's way before the armor, in metres in the part's space
+        ('end', ()),            # (x, y, z) of the shell's way behind the armor
+        ('effect', 0),          # constants.VEHICLE_HIT_EFFECT of the point
+    )
+    __slots__ = tuple(name for name, _ in FIELDS)
+
+
 class Hit(Record):
     FIELDS = (
         ('time', 0.0),          # seconds since the battle started (the arena's battle period)
         ('vehicleId', 0),       # the other vehicle (intCD): the shooter of a received hit, the target of a dealt one
+        ('vehicleDescr', ''),   # the other vehicle's compact descriptor (its modules), hex; '' when not known
         ('playerName', ''),     # the other vehicle's player
         ('shellType', ''),      # the shell kind, a constants.SHELL_TYPES name: ARMOR_PIERCING, HIGH_EXPLOSIVE, ...
         ('damage', 0),          # hit points the hit took
@@ -48,7 +68,9 @@ class Hit(Record):
         ('isSplash', False),    # a high explosive splash nearby, not a hit on the armor
         ('critsCount', 0),      # modules and crew the hit damaged, as the client's damage log counts them
         ('isGoldShell', False), # a premium shell
+        ('points', ()),         # the points the shell hit, in order (HitPoint); none for a splash
     )
+    NESTED = {'points': HitPoint}
     __slots__ = tuple(name for name, _ in FIELDS)
 
     @property
@@ -63,6 +85,21 @@ class Hit(Record):
 def _shellType(index):
     # SHELL_TYPES_LIST index of a decoded hit point, as the shell kind name.
     return SHELL_TYPES_LIST[index] if 0 <= index < len(SHELL_TYPES_LIST) else ''
+
+
+def vehicleDescr(descriptor):
+    # The compact descriptor of a vehicle descriptor (its type and modules) as hex, '' without one.
+    if descriptor is None:
+        return ''
+    try:
+        return descriptor.makeCompactDescr().encode('hex')
+    except Exception:
+        _logger.exception('hits: no compact descriptor of %s', descriptor)
+        return ''
+
+
+def _vector(vector):
+    return tuple(round(value, _POINT_DECIMALS) for value in (vector.x, vector.y, vector.z))
 
 
 def _battleTime(arena):
@@ -165,7 +202,8 @@ class HitCollector(object):
         arenaVehicle = player.arena.vehicles.get(otherID) or {}
         descriptor = arenaVehicle.get('vehicleType')
         hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',
-                          vehicleId=descriptor.type.compactDescr if descriptor is not None else 0)
+                          vehicleId=descriptor.type.compactDescr if descriptor is not None else 0,
+                          vehicleDescr=vehicleDescr(descriptor))
         key, now = (field, otherID), BigWorld.serverTime()
         for eventTime, info in self._pendingEvents.pop(key, ()):
             if now - eventTime <= _PAIRING_TIME:
@@ -178,14 +216,20 @@ class HitCollector(object):
     def _shotHit(vehicle, args, kwargs):
         hitPoints = _argument(args, kwargs, 1, 'hitPoints') or ()
         collisions = vehicle.appearance.collisions if getattr(vehicle, 'appearance', None) is not None else None
-        effects, shellType = [], ''
+        effects, points, shellType = [], [], ''
         if collisions is not None:
             for hitPoint in hitPoints:
                 parsed = DamageFromShotDecoder.parseHitPoint(hitPoint, collisions)
-                if parsed is not None:
-                    effects.append(parsed[1])
-                    shellType = shellType or _shellType(parsed[5])
-        return Hit(damage=_argument(args, kwargs, 4, 'damage') or 0, shellType=shellType, hitEffects=tuple(effects))
+                if parsed is None:
+                    continue
+                part, effect, start, end = parsed[:4]
+                effects.append(effect)
+                shellType = shellType or _shellType(parsed[5])
+                # A dynamic part (negative index) is not one of the vehicle's own parts.
+                if 0 <= part < len(TankPartIndexes.ALL):
+                    points.append(HitPoint(part=part, start=_vector(start), end=_vector(end), effect=effect))
+        return Hit(damage=_argument(args, kwargs, 4, 'damage') or 0, shellType=shellType, hitEffects=tuple(effects),
+                   points=tuple(points))
 
     def _onBattleEvents(self, name, avatar, args, kwargs):
         now = BigWorld.serverTime()

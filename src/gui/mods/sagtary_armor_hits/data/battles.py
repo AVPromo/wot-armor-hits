@@ -17,7 +17,7 @@ from Event import Event
 from PlayerEvents import g_playerEvents
 
 from gui.mods.sagtary_armor_hits.config import BATTLES_LIMIT
-from gui.mods.sagtary_armor_hits.data.hits import Hit
+from gui.mods.sagtary_armor_hits.data.hits import Hit, vehicleDescr
 from gui.mods.sagtary_armor_hits.data.record import Record
 
 _logger = logging.getLogger('sagtary.armor_hits')
@@ -48,6 +48,7 @@ class Battle(Record):
         ('gameplayId', 0),      # the gameplay on the map: standard, encounter, assault, ... (the high bits)
         ('battleType', 0),      # kind of battle: random, training, ... (constants.ARENA_GUI_TYPE)
         ('vehicleId', 0),       # the player's vehicle (its intCD, the client's vehicle type compactDescr)
+        ('vehicleDescr', ''),   # the player's vehicle compact descriptor (its modules), hex; '' when not known
         ('startedAt', 0.0),     # when the player entered the battle, Unix time in seconds
         ('isReplay', False),    # a replay watched, not a battle played
         ('playerTeam', None),   # the player's team, 1 or 2; None when not known
@@ -84,6 +85,7 @@ def battleFromAvatar(player):
         startedAt=time.time(),
         isReplay=BattleReplay.isPlaying(),
         playerTeam=player.team,
+        vehicleDescr=vehicleDescr(descriptor),
     )
 
 
