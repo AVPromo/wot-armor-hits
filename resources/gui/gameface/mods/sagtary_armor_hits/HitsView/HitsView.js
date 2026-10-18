@@ -71,6 +71,21 @@ sceneInput.addEventListener("wheel", (event) => {
     event.preventDefault();
     moveSpace(0, 0, event.deltaY < 0 ? -WHEEL_STEP : WHEEL_STEP);
 });
+// Scrolled lists: Gameface's own wheel scrolling of an overflow moves a few pixels a step, so the page scrolls them
+// itself, a part of the visible height a step. Gameface gives a negative deltaY for the wheel turned towards the user
+// (down).
+const LIST_STEP = 0.3;
+Array.prototype.forEach.call(document.querySelectorAll(".battleSelector__list, .hitsPanel__list"), (list) => {
+    list.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.deltaY) {
+            const step = Math.max(40, list.clientHeight * LIST_STEP);
+            list.scrollTop += event.deltaY < 0 ? step : -step;
+        }
+    });
+});
+
 sceneInput.addEventListener("mouseover", () => setOverScene(true));
 sceneInput.addEventListener("mouseout", () => {
     setOverScene(false);
@@ -295,16 +310,111 @@ function drawDevTools() {
 devToolsImport.addEventListener("click", () => window.model.devTools.onImport());
 devToolsExport.addEventListener("click", () => window.model.devTools.onExport());
 
+// Overlay panel: the overlay type dropdown (window.model.overlayPanel) and the scales of the chosen type. A click on
+// the dropdown opens its list, a click on a type chooses it (onSelect), a click elsewhere or Escape closes the list.
+const overlayPanel = document.querySelector(".overlayPanel");
+const overlayDropdown = overlayPanel.querySelector(".overlayPanel__dropdown");
+const overlayList = overlayPanel.querySelector(".overlayPanel__list");
+const overlayScales = overlayPanel.querySelector(".overlayPanel__scales");
+
+function setOverlayOpen(open) {
+    overlayDropdown.classList.toggle("overlayPanel__open", open);
+}
+
+function drawOverlayPanel() {
+    const model = window.model && window.model.overlayPanel;
+    if (!model) {
+        return;
+    }
+    overlayPanel.querySelector(".overlayPanel__title").textContent = model.title;
+    const selectedId = model.selectedId;
+    const items = arrayItems(model.items);
+    const selected = items.filter((item) => item.id === selectedId)[0];
+    overlayPanel.querySelector(".overlayPanel__selected").textContent = selected ? selected.label : "";
+    overlayList.innerHTML = "";
+    items.forEach((item) => {
+        const row = element("div", `overlayPanel__item${item.id === selectedId ? " overlayPanel__itemSelected" : ""}`);
+        row.appendChild(element("div", "overlayPanel__itemBg"));
+        row.appendChild(element("div", "overlayPanel__itemLabel", item.label));
+        // Handlers keep plain values: the model's items are destroyed when the model is filled again.
+        const id = item.id;
+        row.addEventListener("click", (event) => {
+            event.stopPropagation();
+            setOverlayOpen(false);
+            window.model.overlayPanel.onSelect({ id });
+        });
+        overlayList.appendChild(row);
+    });
+    overlayScales.innerHTML = "";
+    arrayItems(model.scales).forEach((scale) => {
+        const node = element("div", "overlayPanel__scale");
+        const title = element("div", "overlayPanel__scaleTitle", scale.title);
+        title.appendChild(element("span", "overlayPanel__scaleUnits", scale.units));
+        node.appendChild(title);
+        const bar = element("div", "overlayPanel__scaleBar");
+        setImage(bar, scale.image);
+        node.appendChild(bar);
+        const values = element("div", "overlayPanel__scaleValues");
+        values.appendChild(element("span", "", scale.minValue));
+        values.appendChild(element("span", "", scale.maxValue));
+        node.appendChild(values);
+        overlayScales.appendChild(node);
+    });
+}
+
+overlayPanel.querySelector(".overlayPanel__trigger").addEventListener("click", (event) => {
+    event.stopPropagation();
+    setOverlayOpen(!overlayDropdown.classList.contains("overlayPanel__open"));
+});
+document.addEventListener("click", () => setOverlayOpen(false));
+document.addEventListener("keydown", (event) => {
+    if (event.keyCode === 27) {
+        setOverlayOpen(false);
+    }
+});
+
+// Scene panel: lines of all the shown hits or of the chosen one (onLines), the shooter view (onShooterView), from
+// window.model.scenePanel.
+const scenePanel = document.querySelector(".scenePanel");
+const sceneSegments = scenePanel.querySelectorAll(".scenePanel__segment");
+const sceneShooter = scenePanel.querySelector(".scenePanel__shooter");
+
+function drawScenePanel() {
+    const model = window.model && window.model.scenePanel;
+    if (!model) {
+        return;
+    }
+    scenePanel.querySelector(".scenePanel__label").textContent = model.linesLabel;
+    for (let index = 0; index < sceneSegments.length; index++) {
+        const segment = sceneSegments[index];
+        const all = segment.getAttribute("data-all") === "1";
+        segment.textContent = all ? model.allLabel : model.currentLabel;
+        segment.classList.toggle("scenePanel__segmentSelected", all === Boolean(model.allLines));
+    }
+    sceneShooter.textContent = model.shooterLabel;
+    sceneShooter.classList.toggle("scenePanel__shooterOn", Boolean(model.shooterView));
+}
+
+for (let index = 0; index < sceneSegments.length; index++) {
+    const all = sceneSegments[index].getAttribute("data-all") === "1";
+    sceneSegments[index].addEventListener("click", () => window.model.scenePanel.onLines({ all }));
+}
+sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
+
 function draw() {
     drawBattleSelector();
     drawHitsPanel();
     drawDevTools();
+    drawOverlayPanel();
+    drawScenePanel();
 }
 
 // The page draws again on a change of the model or of any of its parts: a change inside a part (its arrays, its
 // selection) is told to the observers of that part's path.
 engine.whenReady.then(() => {
-    const callbackIDs = ["model", "model.battleSelector", "model.hitsPanel", "model.devTools"].map((path) =>
+    const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.devTools", "model.overlayPanel",
+        "model.scenePanel"];
+    const callbackIDs = paths.map((path) =>
         viewEnv.addDataChangedCallback(path, 0, true),
     );
     engine.on("viewEnv.onDataChanged", (data, indexes, changedIDs) => {

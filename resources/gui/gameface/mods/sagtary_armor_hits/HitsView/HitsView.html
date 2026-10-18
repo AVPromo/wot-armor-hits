@@ -52,10 +52,29 @@
                     </div>
                 </div>
                 <div class="hitsView__right">
-                    <div class="layout layout__overlay">Overlay type</div>
+                    <!-- Overlay panel: the armor overlay type and its scales, like the client's armor page (HitsView.js). -->
+                    <div class="overlayPanel">
+                        <div class="overlayPanel__title"></div>
+                        <div class="overlayPanel__dropdown">
+                            <div class="overlayPanel__trigger">
+                                <div class="overlayPanel__selected"></div>
+                                <div class="overlayPanel__arrow"></div>
+                            </div>
+                            <div class="overlayPanel__list"></div>
+                        </div>
+                        <div class="overlayPanel__scales"></div>
+                    </div>
                     <div class="layout layout__shot">Shooter, vehicle, shell, result, sections</div>
                 </div>
-                <div class="layout layout__lines">Lines, shooter view</div>
+                <!-- Scene panel: which hit lines are drawn, the shooter view (HitsView.js). -->
+                <div class="scenePanel">
+                    <div class="scenePanel__label"></div>
+                    <div class="scenePanel__segments">
+                        <div class="scenePanel__segment" data-all="1"></div>
+                        <div class="scenePanel__segment" data-all="0"></div>
+                    </div>
+                    <div class="scenePanel__shooter"></div>
+                </div>
             </div>
         </div>
         <script type="module" src="HitsView.js"></script>

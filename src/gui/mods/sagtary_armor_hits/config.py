@@ -40,6 +40,9 @@ TEXTS = {
         'battles/empty': u'No battles yet',
         'hits/received': u'On me',
         'hits/dealt': u'By me',
+        'lines/title': u'Lines',
+        'lines/current': u'Current',
+        'camera/shooter': u'Shooter view',
     },
     'ru': {
         'lobbyButton/name': u'Armor Hits',
@@ -47,5 +50,8 @@ TEXTS = {
         'battles/empty': u'Боёв пока нет',
         'hits/received': u'По мне',
         'hits/dealt': u'По врагам',
+        'lines/title': u'Линии',
+        'lines/current': u'Текущая',
+        'camera/shooter': u'Вид стрелка',
     },
 }

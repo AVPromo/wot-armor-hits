@@ -66,6 +66,16 @@ class HitsPanelPresenter(object):
         self.onChanged = Event()
 
     @property
+    def shownHits(self):
+        # [(number, hit)] the panel lists: the chosen side's hits that pass the filter.
+        return self._shownHits()
+
+    @property
+    def selectedNumber(self):
+        # Number of the chosen hit on its side, None without one.
+        return self._hitNumber
+
+    @property
     def selection(self):
         # (battle, side, chosen hit): the battle is None when there is none, the hit when its side has none.
         battle = self._store.getBattle(self._battleId) if self._battleId is not None else None

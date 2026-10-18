@@ -24,7 +24,7 @@ def _shownVehicleType(vehicleId):
     vehicleType = vehicles.getVehicleType(vehicleId)
     if _MAPS_TRAINING_MARK in vehicleType.name:
         try:
-            nationID, typeID = vehicles.g_list.getIDsByName(vehicleType.name.split(_MAPS_TRAINING_MARK)[0])
+            nationID, typeID = vehicles.g_list.getIDsByName(_copiedName(vehicleType.name))
             vehicleType = vehicles.g_cache.vehicle(nationID, typeID)
         except Exception:
             _logger.debug('client names: no vehicle copied by %s', vehicleType.name)
@@ -52,6 +52,48 @@ def shownVehicleId(vehicleId):
     except Exception:
         _logger.debug('client names: no vehicle %s', vehicleId)
         return None
+
+
+def _copiedName(name):
+    # The name of the vehicle's or module's original: a maps training copy's module 'PzVI_Porsche_Turm_MapsTraining_
+    # Player_HT_2' copies 'PzVI_Porsche_Turm'.
+    return name.split(_MAPS_TRAINING_MARK)[0]
+
+
+def shownVehicleDescr(vehicleId, descr):
+    # The compact descriptor (bytes) of the vehicle to show in the hangar for the vehicle (intCD) with its modules
+    # (compact descriptor, hex), or None for the default modules. A maps training copy is shown as the vehicle it
+    # copies with the modules its own modules copy (the same models, so the hit points fit).
+    if not descr:
+        return None
+    try:
+        descr = descr.decode('hex')
+        shownType = _shownVehicleType(vehicleId)
+        if shownType.compactDescr == vehicleId:
+            return descr
+        copy = vehicles.VehicleDescr(compactDescr=descr)
+        shown = vehicles.VehicleDescr(typeID=shownType.id)
+    except Exception:
+        _logger.debug('client names: no descriptor of vehicle %s', vehicleId, exc_info=True)
+        return None
+    for module, choices in ((copy.chassis, shownType.chassis), (copy.engine, shownType.engines),
+                            (copy.fuelTank, shownType.fuelTanks), (copy.radio, shownType.radios)):
+        for choice in choices:
+            if choice.name == _copiedName(module.name):
+                try:
+                    shown.installComponent(choice.compactDescr)
+                except Exception:
+                    _logger.debug('client names: cannot install %s', choice.name, exc_info=True)
+    for turret in shownType.turrets[0]:
+        if turret.name != _copiedName(copy.turret.name):
+            continue
+        for gun in turret.guns:
+            if gun.name == _copiedName(copy.gun.name):
+                try:
+                    shown.installTurret(turret.compactDescr, gun.compactDescr)
+                except Exception:
+                    _logger.debug('client names: cannot install %s', turret.name, exc_info=True)
+    return shown.makeCompactDescr()
 
 
 def mapNames(mapId):

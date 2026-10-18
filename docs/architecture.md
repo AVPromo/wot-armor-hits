@@ -58,8 +58,12 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
-| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way as thin models in the 3D scene over the hangar vehicle |
+| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way as thin tubes in the 3D scene over the hangar vehicle |
+| `views/hits/scene_lines.py`               | dashed tubes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay |
 | `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
+| `views/hits/overlay_panel.py`             | presenter of the overlay panel: the armor page's overlay types and scales (client texts, gradients, the vehicle's thickest armor) and the client's armor overlay on the hangar vehicle |
+| `views/hits/armor_tooltip.py`             | presenter of the armor tooltip: the client's armor page tooltip (`ArmorTooltipWindow`) for the armor under the mouse, with the chosen hit's shell |
+| `views/hits/scene_panel.py`               | presenter of the scene panel: lines of all shown hits or of the chosen one, the shooter view (camera along the shell) |
 | `views/hits/dev_tools.py`                 | presenter of the developer tools: Import reads the battles file into the `BattleStore`, Export writes the store to it; the result is a system message |
 | `views/lobby_button/lobby_button.py`      | the hangar button that opens the screen; picks one of the two below |
 | `views/lobby_button/mods_list_entry.py`   | entry in the ModsList API mods list (optional)               |
@@ -69,6 +73,8 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/models/footer_button_model.py`     | view model of the footer button                              |
 | `views/models/hits_panel_model.py`        | view models of the hits panel, its hits, targets and filters |
 | `views/models/dev_tools_model.py`         | view model of the developer tools                            |
+| `views/models/overlay_panel_model.py`     | view models of the overlay panel, its types and scales       |
+| `views/models/scene_panel_model.py`       | view model of the scene panel                                |
 
 Planned, as the features come (after Poliroid's Battle Hits, which does the same job):
 
@@ -149,14 +155,16 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   normal at a last ricochet: it comes a few frames after the vehicle and answers with wrong points before that.
   When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
   the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
-  `onVehicleChangeStarted` and on another hit. Each piece of the way is dashed white and red, 10 cm a dash; a dash is
-  the mod's line model of its color (`res/content/sagtary_armor_hits/line_<color>.model`, made by
-  `tools/make_line_model.py`: a tube with the client's glow shader and a texture of one color, like the lines of the
-  Battle Hits mod) stretched by a `Servo` matrix to 18 mm thick, so the vehicle hides what is behind it. The way:
+  `onVehicleChangeStarted` and on another hit. Each piece of the chosen hit's way is dashed white and red, 10 cm a dash
+  (the other hits' ways, with "All" lines, are the same but all white); a dash is a cylinder 18 mm thick drawn with
+  the client's debug drawer (`DebugDrawer.DebugDrawer().cylinder()`, tested against the scene's depth, so the vehicle
+  hides what is behind it), again on every frame. The debug drawer draws after the client's armor overlay, which
+  covers every scene model whatever its shader (`glow.fx`, `glow_noalpha.fx`, opaque `lightonly.fx` were tried). The way:
   2.5 m before the first point; on to the next point after a ricochet or spaced armor; 1.5 m out of a last ricochet
   in the mirrored direction; none after a penetration; only the first point for a high explosive shell (its other
   points are what the burst hit). Tried before: a Gameface overlay projected every frame (thin and colored, but flat,
-  over the vehicle) and the client's cube `objects/misc/bbox/unit_cube_1m_proxy.model` (lit, of one bluish color);
+  over the vehicle), the client's cube `objects/misc/bbox/unit_cube_1m_proxy.model` (lit, of one bluish color) and
+  the mod's own tube models with the glow shader (under the armor overlay);
 - the page passes the mouse over the scene to the hangar camera like the client's `SceneWrapper`: a layer under the
   panels sends drags (`dx`, `dy` in pixels) and wheel steps (`dz` of 600) to `onMoveSpace`, which fires
   `CameraRelatedEvents.LOBBY_VIEW_MOUSE_MOVE`, and `onMouseOver3dScene` fires `NOTIFY_CURSOR_OVER_3DSCENE`; the
@@ -184,7 +192,12 @@ the mod runs in the game folder, not in this repository. Without the battles fil
 no developer tools presenter and the page hides the buttons.
 
 The armor overlay of the client's armor screen is a CGF component (`ArmorInspectorComponent`) put on the hangar
-vehicle, so the hits screen can show it without the Vehicle Hub.
+vehicle, so the hits screen can show it without the Vehicle Hub. The overlay panel presenter puts it on the vehicle's
+game object on `HangarSpace.onVehicleChanged` and takes it off on `onVehicleChangeStarted`, on "no overlay" and when
+the screen closes. For the penetration chance it sets the chosen hit's shell as the armor page sets its attacker's
+(`setShellParamsFromVehicle`): the shot of the shooter's gun with the hit's shell kind, premium or not (the shooter is
+the other vehicle of a received hit, the player's vehicle of a dealt one, with its modules from the compact
+descriptor).
 
 ## Logging
 

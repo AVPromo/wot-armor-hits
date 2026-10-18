@@ -17,7 +17,7 @@ from helpers import dependency
 from skeletons.gui.shared import IItemsCache
 from skeletons.gui.shared.utils import IHangarSpace
 
-from gui.mods.sagtary_armor_hits.data.client_names import shownVehicleId
+from gui.mods.sagtary_armor_hits.data.client_names import shownVehicleDescr, shownVehicleId
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import DEALT
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import sceneState
 
@@ -28,12 +28,12 @@ _NO_VEHICLE = 'none'
 
 
 def _shownVehicle(vehicleId, descr):
-    # (intCD, compact descriptor or None) to show; a maps training dummy is shown as the vehicle it copies, with
-    # the default modules of that one.
+    # (intCD, compact descriptor or None) to show; a maps training copy is shown as the vehicle it copies, with the
+    # modules its own modules copy.
     shownId = shownVehicleId(vehicleId)
     if shownId is None:
         return None
-    return shownId, descr.decode('hex') if descr and shownId == vehicleId else None
+    return shownId, shownVehicleDescr(vehicleId, descr)
 
 
 def hitsVehicle(battle, side, hit):

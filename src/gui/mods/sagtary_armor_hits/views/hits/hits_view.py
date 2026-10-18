@@ -23,11 +23,14 @@ from gui.impl.pub.view_component import ViewComponent
 from gui.shared import EVENT_BUS_SCOPE, events, g_eventBus
 
 from gui.mods.sagtary_armor_hits.lang import text
+from gui.mods.sagtary_armor_hits.views.hits.armor_tooltip import ArmorTooltipPresenter
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
 from gui.mods.sagtary_armor_hits.views.hits.dev_tools import DevToolsPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import HangarVehiclePresenter
 from gui.mods.sagtary_armor_hits.views.hits.hit_lines import HitLinesPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
+from gui.mods.sagtary_armor_hits.views.hits.overlay_panel import OverlayPanelPresenter
+from gui.mods.sagtary_armor_hits.views.hits.scene_panel import ScenePanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import SceneLog
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
 
@@ -61,8 +64,14 @@ class HitsView(ViewComponent):
         self._presenters.append(hitsPanel)
         # The hangar shows the vehicle the hits panel shows the hits on.
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
-        # The chosen hit is drawn over that vehicle.
-        self._presenters.append(HitLinesPresenter(hitsPanel))
+        # The scene panel's choices: which lines are drawn over that vehicle, the shooter view.
+        scenePanel = ScenePanelPresenter(model.scenePanel, {
+            'lines': text('lines/title'), 'current': text('lines/current'), 'shooter': text('camera/shooter')})
+        self._presenters.append(scenePanel)
+        self._presenters.append(HitLinesPresenter(hitsPanel, scenePanel))
+        overlayPanel = OverlayPanelPresenter(model.overlayPanel, hitsPanel)
+        self._presenters.append(overlayPanel)
+        self._presenters.append(ArmorTooltipPresenter(overlayPanel))
         if self._battleFile is not None:
             self._presenters.append(DevToolsPresenter(model.devTools, self._battleStore, self._battleFile))
         for presenter in self._presenters:
