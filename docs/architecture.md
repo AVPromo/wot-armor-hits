@@ -23,18 +23,41 @@ declaration file is `gui/gen_resources/sagtary_armor_hits.json`: a file with the
 
 ## Package `sagtary_armor_hits`
 
-Now:
+Now. The parts depend one way: the entry module wires them; `views/` uses `data/`; `data/` knows nothing of the UI.
+The objects are made in the entry module and given to the parts that use them (a `BattleStore` to `HitsScreen`,
+which gives it to the window with the keyword arguments of `App.loadView`), so there is no shared state in modules.
 
-| Module               | Does                                                                 |
-|----------------------|----------------------------------------------------------------------|
-| `config.py`          | ids, resource paths, texts                                           |
-| `lang.py`            | texts in the client language                                         |
-| `settings.py`        | user settings from `mods/configs/sagtary_armor_hits/config.json`     |
-| `lobby_button.py`    | the hangar button that opens the viewer; picks one of the two below  |
-| `mods_list_entry.py` | entry in the ModsList API mods list (optional)                       |
-| `footer_button.py`   | button of its own in the hangar footer, next to the game menu button |
-| `hits_screen.py`     | the mod's own hits screen over the 3D hangar, a page of the lobby navigation; for now only the layout of its panels, the hangar shows no vehicle while it is open |
-| `battle_recorder.py` | raw record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/battles/` |
+Core:
+
+| Module             | Does                                                                         |
+|--------------------|------------------------------------------------------------------------------|
+| `config.py`        | ids, resource paths, texts, limits                                           |
+| `lang.py`          | texts in the client language                                                 |
+| `settings.py`      | user settings from `mods/configs/sagtary_armor_hits/config.json`             |
+| `optional_mods.py` | the optional third-party mods, or `None` when not installed: OpenWG Gameface (`gfModInject`), ModsList API (`modsListApi`) |
+
+Data, without UI (`data/`):
+
+| Module                    | Does                                                                         |
+|---------------------------|------------------------------------------------------------------------------|
+| `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays) |
+| `data/battle_recorder.py` | raw record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/battles/` |
+
+UI (`views/`), a package per screen or button. The view models, the data the Gameface pages read, are apart in
+`views/models/`, like the client's `gui/impl/gen/view_models`; they hold no logic, the views and presenters fill them.
+
+| Module                                    | Does                                                         |
+|-------------------------------------------|--------------------------------------------------------------|
+| `views/hits/hits_screen.py`               | puts the hits screen into the client: the view setting, the lobby state and its transition; loads the view with the `BattleStore` |
+| `views/hits/hits_state.py`                | lobby state of the screen: a page of the lobby navigation, the armor page scene and camera |
+| `views/hits/hits_view.py`                 | window and Gameface view of the screen: the full screen page, the mouse over the scene, the panel presenters |
+| `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
+| `views/lobby_button/lobby_button.py`      | the hangar button that opens the screen; picks one of the two below |
+| `views/lobby_button/mods_list_entry.py`   | entry in the ModsList API mods list (optional)               |
+| `views/lobby_button/footer_button.py`     | button of its own in the hangar footer, next to the game menu button |
+| `views/models/hits_view_model.py`         | view model of the hits screen                                |
+| `views/models/battle_selector_model.py`   | view models of the battle selector and of a battle in its list |
+| `views/models/footer_button_model.py`     | view model of the footer button                              |
 
 Planned, as the features come (after Poliroid's Battle Hits, which does the same job):
 
@@ -42,7 +65,7 @@ Planned, as the features come (after Poliroid's Battle Hits, which does the same
 |-------------------|-----------------------------------------------------------------------------|
 | storage           | keep the hits of the last battles between sessions                          |
 | hangar scene      | show the vehicle in the hangar with the hit points on its armor             |
-| viewer screen     | list of battles and hits on the hits screen                                 |
+| viewer screen     | hits of the selected battle on the hits screen                              |
 
 ## Lobby button
 
@@ -93,8 +116,25 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
 - the state has no `LobbyStateFlags.HANGAR` flag: the lobby header picks its type by that flag, and without it shows the
   page header (hangar button, page title, wallet) instead of the full hangar header; the hangar button closes the
   screen;
-- entering the state removes the vehicle from the hangar (`IHangarSpace.removeVehicle`), leaving it puts the current
-  vehicle back (`g_currentVehicle.refreshModel`).
+- the 3D scene is set like on the armor page (the client's `VehicleHubState` and `ArmorState`): entering the state
+  moves the hangar vehicle to the customization place (`HangarCustomizationEvent.CHANGE_VEHICLE_MODEL_TRANSFORM`, the
+  place and angles of `customizationHangarCFG()`), and leaving it puts the vehicle back
+  (`RESET_VEHICLE_MODEL_TRANSFORM`, `turretAndGunAngles.reset()`);
+- the state is a `SubhangarStateGroupConfigProvider`: the client's `SubhangarObserver` activates the subhangar groups
+  `VehicleHub` and `VehicleHubArmor{Small,Medium,Large}Tank` (by the vehicle size, `selectItemByTankSize`), which
+  switches to the armor camera (`Armor_Inspector_Camera`); the camera moves there at once (`CameraMover`), as a smooth
+  move would fly it from the hangar up to the customization place;
+- the page passes the mouse over the scene to the hangar camera like the client's `SceneWrapper`: a layer under the
+  panels sends drags (`dx`, `dy` in pixels) and wheel steps (`dz` of 600) to `onMoveSpace`, which fires
+  `CameraRelatedEvents.LOBBY_VIEW_MOUSE_MOVE`, and `onMouseOver3dScene` fires `NOTIFY_CURSOR_OVER_3DSCENE`; the
+  panels' container lets the mouse through (`pointer-events: none`), the panels do not.
+
+The battle selector shows the selected battle (map preview `gui/maps/icons/map/small/<map>.png`, map, mode from
+`R.strings.menu.loading.battleTypes`, vehicle, date and time in the client format) and opens the list of the session's
+battles; it is styled like the client's dropdowns (the armor page's overlay type: the client's arrow and list item
+background). The battles are kept in memory only, so the list starts empty with every game start. To add a field:
+a field in `Battle.FIELDS` and in `battleFromAvatar`, a property in `BattleItemModel`, a line in `_fillItem`, and its
+place on the page.
 
 The armor overlay of the client's armor screen is a CGF component (`ArmorInspectorComponent`) put on the hangar
 vehicle, so the hits screen can show it without the Vehicle Hub.

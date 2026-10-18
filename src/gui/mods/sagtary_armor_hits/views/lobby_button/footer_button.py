@@ -9,12 +9,11 @@ OpenWG Gameface (gf_mod_inject) loads it into the page, and the script puts the 
 import importlib
 import logging
 
-from frameworks.wulf import ViewModel
 from gui.impl.gen import R
 from gui.impl.pub.view_component import ViewComponent
 
-from gui.mods.sagtary_armor_hits.config import FOOTER_BUTTON_MODEL, FOOTER_BUTTON_SCRIPT, FOOTER_BUTTON_STYLE
 from gui.mods.sagtary_armor_hits.lang import text
+from gui.mods.sagtary_armor_hits.views.models.footer_button_model import FooterButtonModel
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -28,38 +27,21 @@ _FOOTERS = (
 )
 
 
-def gfModInject():
-    # openwg_gameface.gf_mod_inject, or None when OpenWG Gameface is not installed.
-    try:
-        from openwg_gameface import gf_mod_inject
-    except ImportError:
-        return None
-    return gf_mod_inject
-
-
-class _FooterButtonModel(ViewModel):
-
-    def __init__(self, properties=3, commands=1):
-        # 2 texts and the inject model of OpenWG Gameface.
-        super(_FooterButtonModel, self).__init__(properties=properties, commands=commands)
-
-    def _initialize(self):
-        super(_FooterButtonModel, self)._initialize()
-        self._addStringProperty('title', text('lobbyButton/name'))
-        self._addStringProperty('description', text('lobbyButton/description'))
-        self.onClick = self._addCommand('onClick')
-        gfModInject()(self, FOOTER_BUTTON_MODEL, styles=[FOOTER_BUTTON_STYLE], modules=[FOOTER_BUTTON_SCRIPT])
-
-
-class _FooterButtonView(ViewComponent[_FooterButtonModel]):
+class _FooterButtonView(ViewComponent[FooterButtonModel]):
 
     def __init__(self, onClick):
         super(_FooterButtonView, self).__init__(layoutID=R.mods.sagtary_armor_hits.views.FooterButton(),
-                                                model=_FooterButtonModel)
+                                                model=FooterButtonModel)
         self._onClick = onClick
 
     def _getEvents(self):
         return ((self.getViewModel().onClick, self.__onClick),)
+
+    def _onLoading(self, *args, **kwargs):
+        super(_FooterButtonView, self)._onLoading(*args, **kwargs)
+        with self.getViewModel().transaction() as model:
+            model.setTitle(text('lobbyButton/name'))
+            model.setDescription(text('lobbyButton/description'))
 
     def __onClick(self, *args):
         self._onClick()

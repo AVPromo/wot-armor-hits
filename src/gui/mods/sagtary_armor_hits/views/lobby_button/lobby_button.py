@@ -7,8 +7,9 @@ OpenWG Gameface.
 """
 import logging
 
-from gui.mods.sagtary_armor_hits.footer_button import FooterButton, gfModInject
-from gui.mods.sagtary_armor_hits.mods_list_entry import ModsListEntry, modsListApi
+from gui.mods.sagtary_armor_hits.optional_mods import gfModInject, modsListApi
+from gui.mods.sagtary_armor_hits.views.lobby_button.footer_button import FooterButton
+from gui.mods.sagtary_armor_hits.views.lobby_button.mods_list_entry import ModsListEntry
 
 _logger = logging.getLogger('sagtary.armor_hits')
 

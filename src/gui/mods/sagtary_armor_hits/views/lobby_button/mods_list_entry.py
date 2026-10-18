@@ -7,15 +7,6 @@ from gui.mods.sagtary_armor_hits.config import LOBBY_BUTTON_ICON, LOBBY_BUTTON_I
 from gui.mods.sagtary_armor_hits.lang import text
 
 
-def modsListApi():
-    # The ModsList API, or None when that mod is not installed.
-    try:
-        from gui.modsListApi import g_modsListApi
-    except ImportError:
-        return None
-    return g_modsListApi
-
-
 class ModsListEntry(object):
 
     def __init__(self, api, onClick):

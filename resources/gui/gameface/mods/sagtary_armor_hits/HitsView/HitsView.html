@@ -10,9 +10,26 @@
     </head>
     <body>
         <div class="hitsView">
+            <!-- Mouse over the 3D scene: drags turn the camera, the wheel zooms (HitsView.js). -->
+            <div class="sceneInput"></div>
             <div class="hitsView__content">
                 <div class="hitsView__left">
-                    <div class="layout layout__battle">Battle</div>
+                    <!-- Battle selector: the selected battle and the list of the session's battles (HitsView.js). -->
+                    <div class="battleSelector battleSelector__empty">
+                        <div class="battleSelector__card">
+                            <div class="battleSelector__mapImage"></div>
+                            <div class="battleSelector__info">
+                                <div class="battleSelector__mapName"></div>
+                                <div class="battleSelector__line battleSelector__modeLine"></div>
+                                <div class="battleSelector__line battleSelector__timeLine"></div>
+                            </div>
+                            <div class="battleSelector__arrow"></div>
+                        </div>
+                        <div class="battleSelector__list">
+                            <div class="battleSelector__listTitle"></div>
+                            <div class="battleSelector__items"></div>
+                        </div>
+                    </div>
                     <div class="layout layout__hits">Hits: tabs, targets, result filter, hit N of M, list</div>
                 </div>
                 <div class="hitsView__right">

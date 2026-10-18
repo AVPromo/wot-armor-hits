@@ -1,5 +1,9 @@
 /* The hits screen. 1rem is one interface pixel (the client sets the root font size to the interface scale). */
 :root {
+    /* The client's colors (hangar global.css). */
+    --color-general-primary: #ede6d9;
+    --color-general-secondary: #b2afab;
+    --color-general-tertiary: #8e867d;
     --external-padding-top: 64rem;
     --external-padding-bottom: 48rem;
 }
@@ -57,6 +61,218 @@ body {
     width: 364rem;
     display: flex;
     flex-direction: column;
+}
+
+/* Mouse over the 3D scene, under the panels: the space between the panels passes the mouse to the scene. */
+.sceneInput {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+}
+
+.hitsView__content {
+    pointer-events: none;
+}
+
+.layout {
+    pointer-events: auto;
+}
+
+/* Battle selector: the card of the selected battle and its list, styled like the client's dropdowns (the armor
+   page's overlay type): the client's arrow and list item background, the item text in the secondary colors. */
+.battleSelector {
+    position: relative;
+    flex-shrink: 0;
+    pointer-events: auto;
+    z-index: 10;
+}
+
+.battleSelector__card {
+    display: flex;
+    align-items: center;
+    height: 62rem;
+    padding-right: 14rem;
+    background-color: rgba(14, 16, 18, 0.88);
+    border: 1rem solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.battleSelector__card:hover,
+.battleSelector__open .battleSelector__card {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.battleSelector__empty .battleSelector__card {
+    cursor: default;
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.battleSelector__mapImage {
+    width: 100rem;
+    height: 60rem;
+    flex-shrink: 0;
+    background-color: rgba(255, 255, 255, 0.04);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.battleSelector__info {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    padding-left: 12rem;
+}
+
+.battleSelector__mapName {
+    font-size: 20rem;
+    font-weight: bold;
+    line-height: 22rem;
+    color: var(--color-general-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.battleSelector__line {
+    margin-top: 2rem;
+    font-size: 14rem;
+    line-height: 17rem;
+    color: var(--color-general-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.battleSelector__vehicle {
+    color: var(--color-general-primary);
+}
+
+.battleSelector__empty .battleSelector__mapName {
+    font-size: 15rem;
+    font-weight: normal;
+    white-space: normal;
+    color: var(--color-general-secondary);
+}
+
+.battleSelector__arrow {
+    width: 9rem;
+    height: 6rem;
+    flex-shrink: 0;
+    margin-left: 10rem;
+    background: url(img://gui/maps/icons/lobby/armor_inspector/arrow.png) no-repeat center/contain;
+    transition: transform 150ms ease-in-out;
+}
+
+.battleSelector__open .battleSelector__arrow {
+    transform: rotate(-180deg);
+}
+
+.battleSelector__empty .battleSelector__arrow {
+    display: none;
+}
+
+.battleSelector__list {
+    display: none;
+    position: absolute;
+    top: 64rem;
+    left: 0;
+    right: 0;
+    max-height: 420rem;
+    padding: 5rem 0;
+    overflow-y: auto;
+    background-color: rgba(14, 16, 18, 0.96);
+    border: 1rem solid rgba(255, 255, 255, 0.25);
+    box-shadow: 0 8rem 24rem rgba(0, 0, 0, 0.5);
+}
+
+.battleSelector__open .battleSelector__list {
+    display: block;
+}
+
+.battleSelector__listTitle {
+    padding: 4rem 12rem 6rem;
+    font-size: 12rem;
+    text-transform: uppercase;
+    color: var(--color-general-tertiary);
+}
+
+.battleSelector__item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    padding: 4rem 12rem 4rem 8rem;
+    color: var(--color-general-tertiary);
+    cursor: pointer;
+}
+
+/* The client's list item background: shown on hover, a little on the selected item. */
+.battleSelector__itemBg {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background: url(img://gui/maps/icons/hangar/playlists/item_bg.png) no-repeat center/cover;
+    opacity: 0;
+    transition: opacity 200ms ease-in-out;
+    pointer-events: none;
+}
+
+.battleSelector__item:hover .battleSelector__itemBg {
+    opacity: 0.3;
+}
+
+.battleSelector__itemSelected {
+    color: var(--color-general-secondary);
+}
+
+.battleSelector__itemSelected .battleSelector__itemBg {
+    opacity: 0.15;
+}
+
+.battleSelector__itemImage {
+    position: relative;
+    width: 72rem;
+    height: 43rem;
+    flex-shrink: 0;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.battleSelector__itemInfo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-width: 0;
+    padding-left: 10rem;
+    font-size: 14rem;
+    line-height: 17rem;
+}
+
+.battleSelector__itemMap {
+    font-size: 15rem;
+    font-weight: bold;
+    color: var(--color-general-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.battleSelector__itemTime {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    padding-left: 10rem;
+    font-size: 14rem;
+    line-height: 17rem;
 }
 
 /* Layout marks: plain boxes for the panels of the design, without their content. */
