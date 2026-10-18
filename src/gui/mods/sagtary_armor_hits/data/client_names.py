@@ -19,19 +19,36 @@ _logger = logging.getLogger('sagtary.armor_hits')
 _MAPS_TRAINING_MARK = '_MapsTraining_'
 
 
+def _shownVehicleType(vehicleId):
+    # The vehicle type of the vehicle (intCD) to show: the copied vehicle for a maps training dummy.
+    vehicleType = vehicles.getVehicleType(vehicleId)
+    if _MAPS_TRAINING_MARK in vehicleType.name:
+        try:
+            nationID, typeID = vehicles.g_list.getIDsByName(vehicleType.name.split(_MAPS_TRAINING_MARK)[0])
+            vehicleType = vehicles.g_cache.vehicle(nationID, typeID)
+        except Exception:
+            _logger.debug('client names: no vehicle copied by %s', vehicleType.name)
+    return vehicleType
+
+
 def vehicleShortName(vehicleId):
     # The short name of the vehicle (intCD), or None.
     if not vehicleId:
         return None
     try:
-        vehicleType = vehicles.getVehicleType(vehicleId)
-        if _MAPS_TRAINING_MARK in vehicleType.name:
-            try:
-                nationID, typeID = vehicles.g_list.getIDsByName(vehicleType.name.split(_MAPS_TRAINING_MARK)[0])
-                vehicleType = vehicles.g_cache.vehicle(nationID, typeID)
-            except Exception:
-                _logger.debug('client names: no vehicle copied by %s', vehicleType.name)
-        return vehicleType.shortUserString
+        return _shownVehicleType(vehicleId).shortUserString
+    except Exception:
+        _logger.debug('client names: no vehicle %s', vehicleId)
+        return None
+
+
+def shownVehicleId(vehicleId):
+    # The intCD of the vehicle to show in the hangar for the vehicle (intCD), or None: the copied vehicle for a maps
+    # training dummy.
+    if not vehicleId:
+        return None
+    try:
+        return _shownVehicleType(vehicleId).compactDescr
     except Exception:
         _logger.debug('client names: no vehicle %s', vehicleId)
         return None

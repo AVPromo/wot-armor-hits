@@ -2,10 +2,14 @@
 """Hits panel of the hits screen: the hits of the selected battle, on the player's vehicle or by the player.
 
 HitsPanelPresenter fills the view model (views/models/hits_panel_model.py) for the battle the battle selector shows:
-the side (received or dealt hits), the result filters with their counts, and the hits that pass them; it keeps the chosen hit. The icons are the client's damage log icons; the shell kinds, the
-vehicle names and the "All" label are the client's texts.
+the side (received or dealt hits), the result filters with their counts, and the hits that pass them; it keeps the
+chosen hit and tells its listeners when the panel changes (onChanged, the battle, the side and the chosen hit in
+selection). The icons are the client's damage log icons; the shell kinds, the vehicle names and the "All" label are
+the client's texts.
 """
 import logging
+
+from Event import Event
 
 from gui.mods.sagtary_armor_hits.data.client_names import clientText, vehicleClass, vehicleShortName
 from gui.mods.sagtary_armor_hits.data.hits import HitResult
@@ -59,6 +63,14 @@ class HitsPanelPresenter(object):
         self._filter = ''
         # Number of the chosen hit on its side (stays chosen when the filters change while it passes them).
         self._hitNumber = None
+        self.onChanged = Event()
+
+    @property
+    def selection(self):
+        # (battle, side, chosen hit): the battle is None when there is none, the hit when its side has none.
+        battle = self._store.getBattle(self._battleId) if self._battleId is not None else None
+        hits = dict(self._sideHits() or ())
+        return battle, self._side, hits.get(self._hitNumber)
 
     def init(self):
         with self._model.transaction() as model:
@@ -78,6 +90,7 @@ class HitsPanelPresenter(object):
     def fini(self):
         self._store.onChanged -= self._update
         self._battleSelector.onBattleSelected -= self._onBattleSelected
+        self.onChanged.clear()
         self._model.onStep -= self._onStep
         self._model.onHit -= self._onHit
         self._model.onFilter -= self._onFilter
@@ -157,3 +170,4 @@ class HitsPanelPresenter(object):
                 hitModels.addViewModel(item)
             hitModels.invalidate()
             model.setSelectedHit(numbers.index(self._hitNumber) if self._hitNumber in numbers else -1)
+        self.onChanged()

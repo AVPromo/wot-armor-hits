@@ -7,7 +7,9 @@ the wallet) and not the full hangar header. The header's hangar button closes th
 The 3D scene is set like on the armor page (VehicleHubState and ArmorState of the client): the hangar vehicle moves
 to the customization place (HangarCustomizationEvent.CHANGE_VEHICLE_MODEL_TRANSFORM), and the state, a subhangar
 state group config provider, makes the client's SubhangarObserver activate the armor subhangar group for the size of
-the vehicle, which switches the camera to the armor page camera. For now the vehicle is the current one.
+the vehicle, which switches the camera to the armor page camera. The view puts the vehicle of the shown hits into the
+hangar (hangar_vehicle.py); the armor group is chosen for the vehicle in the hangar when the screen opens and stays
+when the vehicle changes.
 """
 import logging
 import math

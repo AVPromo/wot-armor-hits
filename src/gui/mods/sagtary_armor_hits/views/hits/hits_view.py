@@ -11,8 +11,8 @@ HitsView.js, like the client's armor page, and places its content by the externa
 header and the footer.
 
 The page passes mouse drags and the wheel over the 3D scene to the hangar camera (onMoveSpace, onMouseOver3dScene),
-like the client's SceneWrapper, so the camera turns around the vehicle. The panels have presenters of their own,
-made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
+like the client's SceneWrapper, so the camera turns around the vehicle. The panels and the hangar vehicle have
+presenters of their own, made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
 the view is given a battle file (config.DEV_TOOLS).
 """
 from frameworks.wulf import WindowFlags
@@ -25,6 +25,7 @@ from gui.shared import EVENT_BUS_SCOPE, events, g_eventBus
 from gui.mods.sagtary_armor_hits.lang import text
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
 from gui.mods.sagtary_armor_hits.views.hits.dev_tools import DevToolsPresenter
+from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import HangarVehiclePresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
 
@@ -51,8 +52,11 @@ class HitsView(ViewComponent):
             'empty': text('battles/empty')})
         self._presenters.append(battleSelector)
         # The hits panel shows the battle the selector shows, so it is made and set up after the selector.
-        self._presenters.append(HitsPanelPresenter(model.hitsPanel, self._battleStore, battleSelector, {
-            'received': text('hits/received'), 'dealt': text('hits/dealt')}))
+        hitsPanel = HitsPanelPresenter(model.hitsPanel, self._battleStore, battleSelector, {
+            'received': text('hits/received'), 'dealt': text('hits/dealt')})
+        self._presenters.append(hitsPanel)
+        # The hangar shows the vehicle the hits panel shows the hits on.
+        self._presenters.append(HangarVehiclePresenter(hitsPanel))
         if self._battleFile is not None:
             self._presenters.append(DevToolsPresenter(model.devTools, self._battleStore, self._battleFile))
         for presenter in self._presenters:

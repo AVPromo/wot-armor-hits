@@ -56,7 +56,8 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/hits_state.py`                | lobby state of the screen: a page of the lobby navigation, the armor page scene and camera |
 | `views/hits/hits_view.py`                 | window and Gameface view of the screen: the full screen page, the mouse over the scene, the panel presenters |
 | `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
-| `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit |
+| `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
+| `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
 | `views/hits/dev_tools.py`                 | presenter of the developer tools: Import reads the battles file into the `BattleStore`, Export writes the store to it; the result is a system message |
 | `views/lobby_button/lobby_button.py`      | the hangar button that opens the screen; picks one of the two below |
 | `views/lobby_button/mods_list_entry.py`   | entry in the ModsList API mods list (optional)               |
@@ -131,7 +132,14 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
 - the state is a `SubhangarStateGroupConfigProvider`: the client's `SubhangarObserver` activates the subhangar groups
   `VehicleHub` and `VehicleHubArmor{Small,Medium,Large}Tank` (by the vehicle size, `selectItemByTankSize`), which
   switches to the armor camera (`Armor_Inspector_Camera`); the camera moves there at once (`CameraMover`), as a smooth
-  move would fly it from the hangar up to the customization place;
+  move would fly it from the hangar up to the customization place; the group is chosen for the vehicle in the hangar
+  when the screen opens and stays when the vehicle changes;
+- the hangar shows the vehicle the hits panel shows the hits on, as the preview vehicle like on the Vehicle Hub
+  (`g_currentPreviewVehicle.selectVehicle`): the player's vehicle of the battle on the received side, the vehicle of
+  the chosen hit on the dealt side (the copied vehicle for a maps training dummy), no vehicle when the dealt side
+  has no hits (`HangarSpace.removeVehicle`). A battle keeps the vehicle types
+  only, so a vehicle not in the garage has its default modules. Closing the screen shows the current vehicle again
+  (`selectNoVehicle`);
 - the page passes the mouse over the scene to the hangar camera like the client's `SceneWrapper`: a layer under the
   panels sends drags (`dx`, `dy` in pixels) and wheel steps (`dz` of 600) to `onMoveSpace`, which fires
   `CameraRelatedEvents.LOBBY_VIEW_MOUSE_MOVE`, and `onMouseOver3dScene` fires `NOTIFY_CURSOR_OVER_3DSCENE`; the
