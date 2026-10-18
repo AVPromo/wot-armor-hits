@@ -12,7 +12,8 @@ header and the footer.
 
 The page passes mouse drags and the wheel over the 3D scene to the hangar camera (onMoveSpace, onMouseOver3dScene),
 like the client's SceneWrapper, so the camera turns around the vehicle. The panels have presenters of their own,
-made here with the data they show.
+made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
+the view is given a battle file (config.DEV_TOOLS).
 """
 from frameworks.wulf import WindowFlags
 from gui.hangar_cameras.hangar_camera_common import CameraRelatedEvents
@@ -23,6 +24,8 @@ from gui.shared import EVENT_BUS_SCOPE, events, g_eventBus
 
 from gui.mods.sagtary_armor_hits.lang import text
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
+from gui.mods.sagtary_armor_hits.views.hits.dev_tools import DevToolsPresenter
+from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
 
 # Alias of the Scaleform view setting of the screen.
@@ -31,10 +34,11 @@ VIEW_ALIAS = 'sagtaryArmorHitsView'
 
 class HitsView(ViewComponent):
 
-    def __init__(self, battleStore):
+    def __init__(self, battleStore, battleFile=None):
         super(HitsView, self).__init__(R.mods.sagtary_armor_hits.views.HitsView(), HitsViewModel)
         self._battleStore = battleStore
-        self._battleSelector = None
+        self._battleFile = battleFile
+        self._presenters = []
 
     def _getEvents(self):
         model = self.getViewModel()
@@ -42,15 +46,24 @@ class HitsView(ViewComponent):
 
     def _onLoading(self, *args, **kwargs):
         super(HitsView, self)._onLoading(*args, **kwargs)
-        self._battleSelector = BattleSelectorPresenter(self.getViewModel().battleSelector, self._battleStore, {
-            'empty': text('battles/empty'), 'list': text('battles/list')})
-        self._battleSelector.init()
+        model = self.getViewModel()
+        battleSelector = BattleSelectorPresenter(model.battleSelector, self._battleStore, {
+            'empty': text('battles/empty')})
+        self._presenters.append(battleSelector)
+        # The hits panel shows the battle the selector shows, so it is made and set up after the selector.
+        self._presenters.append(HitsPanelPresenter(model.hitsPanel, self._battleStore, battleSelector, {
+            'received': text('hits/received'), 'dealt': text('hits/dealt')}))
+        if self._battleFile is not None:
+            self._presenters.append(DevToolsPresenter(model.devTools, self._battleStore, self._battleFile))
+        for presenter in self._presenters:
+            presenter.init()
 
     def _finalize(self):
-        if self._battleSelector is not None:
-            self._battleSelector.fini()
-            self._battleSelector = None
+        for presenter in reversed(self._presenters):
+            presenter.fini()
+        self._presenters = []
         self._battleStore = None
+        self._battleFile = None
         super(HitsView, self)._finalize()
 
     @staticmethod
@@ -70,7 +83,8 @@ class HitsView(ViewComponent):
 
 class HitsWindow(WindowImpl):
 
-    def __init__(self, layer, battleStore, **kwargs):
+    def __init__(self, layer, battleStore, battleFile=None, **kwargs):
         # The client's view loader makes the window with the keyword arguments of App.loadView: HitsScreen gives the
-        # battleStore there, the lobby state gives its ctx.
-        super(HitsWindow, self).__init__(content=HitsView(battleStore), wndFlags=WindowFlags.WINDOW, layer=layer)
+        # battleStore and the battleFile there, the lobby state gives its ctx.
+        super(HitsWindow, self).__init__(content=HitsView(battleStore, battleFile), wndFlags=WindowFlags.WINDOW,
+                                         layer=layer)

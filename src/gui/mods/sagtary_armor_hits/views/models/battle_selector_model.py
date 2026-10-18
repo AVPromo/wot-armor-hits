@@ -8,7 +8,7 @@ from frameworks.wulf import Array, ViewModel
 class BattleItemModel(ViewModel):
     __slots__ = ()
 
-    def __init__(self, properties=7, commands=0):
+    def __init__(self, properties=8, commands=0):
         super(BattleItemModel, self).__init__(properties=properties, commands=commands)
 
     def getId(self):
@@ -29,45 +29,54 @@ class BattleItemModel(ViewModel):
     def setMapImage(self, value):
         self._setString(2, value)
 
-    def getMode(self):
+    def getVehicleName(self):
         return self._getString(3)
 
-    def setMode(self, value):
+    def setVehicleName(self, value):
         self._setString(3, value)
 
-    def getVehicleName(self):
+    def getDay(self):
+        # The date of the battle in the client format: the group of the list it is in.
         return self._getString(4)
 
-    def setVehicleName(self, value):
+    def setDay(self, value):
         self._setString(4, value)
 
-    def getDate(self):
+    def getTime(self):
         return self._getString(5)
 
-    def setDate(self, value):
+    def setTime(self, value):
         self._setString(5, value)
 
-    def getTime(self):
+    def getResult(self):
+        # data.battles.BattleResult: '' (not known), 'win', 'defeat', 'draw'.
         return self._getString(6)
 
-    def setTime(self, value):
+    def setResult(self, value):
         self._setString(6, value)
+
+    def getResultText(self):
+        return self._getString(7)
+
+    def setResultText(self, value):
+        self._setString(7, value)
 
     def _initialize(self):
         super(BattleItemModel, self)._initialize()
         self._addStringProperty('id', '')
         self._addStringProperty('mapName', '')
         self._addStringProperty('mapImage', '')
-        self._addStringProperty('mode', '')
         self._addStringProperty('vehicleName', '')
-        self._addStringProperty('date', '')
+        self._addStringProperty('day', '')
         self._addStringProperty('time', '')
+        self._addStringProperty('result', '')
+        self._addStringProperty('resultText', '')
 
 
 class BattleSelectorModel(ViewModel):
     __slots__ = ('onSelect',)
 
-    def __init__(self, properties=4, commands=1):
+    def __init__(self, properties=3, commands=1):
         super(BattleSelectorModel, self).__init__(properties=properties, commands=commands)
 
     def getBattles(self):
@@ -92,17 +101,10 @@ class BattleSelectorModel(ViewModel):
     def setEmptyTitle(self, value):
         self._setString(2, value)
 
-    def getListTitle(self):
-        return self._getString(3)
-
-    def setListTitle(self, value):
-        self._setString(3, value)
-
     def _initialize(self):
         super(BattleSelectorModel, self)._initialize()
         self._addArrayProperty('battles', Array())
         self._addStringProperty('selectedId', '')
         self._addStringProperty('emptyTitle', '')
-        self._addStringProperty('listTitle', '')
         # {id}: the battle the player picked in the list.
         self.onSelect = self._addCommand('onSelect')

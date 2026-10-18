@@ -111,10 +111,25 @@ function setSelectorOpen(open) {
     selector.classList.toggle("battleSelector__open", open && !selector.classList.contains("battleSelector__empty"));
 }
 
-function modeLine(node, battle) {
-    node.textContent = "";
-    node.appendChild(document.createTextNode(battle.mode ? `${battle.mode} · ` : ""));
-    node.appendChild(element("span", "battleSelector__vehicle", battle.vehicleName));
+const RESULT_CLASSES = {
+    win: "battleSelector__resultWin",
+    defeat: "battleSelector__resultDefeat",
+    draw: "battleSelector__resultDraw",
+};
+
+// The result after the map name; empty when it is not known.
+function setResult(node, battle) {
+    node.className = `battleSelector__result ${RESULT_CLASSES[battle.result] || ""}`;
+    node.textContent = battle.resultText || "";
+}
+
+function titleRow(battle) {
+    const row = element("div", "battleSelector__titleRow");
+    row.appendChild(element("div", "battleSelector__itemMap", battle.mapName));
+    const result = element("div", "");
+    setResult(result, battle);
+    row.appendChild(result);
+    return row;
 }
 
 function drawBattleSelector() {
@@ -125,23 +140,27 @@ function drawBattleSelector() {
     const battles = arrayItems(model.battles);
     const selected = battles.find((battle) => battle.id === model.selectedId) || battles[0];
     selector.classList.toggle("battleSelector__empty", !selected);
-    selector.querySelector(".battleSelector__listTitle").textContent = model.listTitle;
     if (!selected) {
+        // No battles yet: the card shows the empty title only.
         setSelectorOpen(false);
-        setImage(selector.querySelector(".battleSelector__mapImage"), "");
         selector.querySelector(".battleSelector__mapName").textContent = model.emptyTitle;
-        selector.querySelector(".battleSelector__modeLine").textContent = "";
-        selector.querySelector(".battleSelector__timeLine").textContent = "";
         selectorItems.textContent = "";
         return;
     }
     setImage(selector.querySelector(".battleSelector__mapImage"), selected.mapImage);
     selector.querySelector(".battleSelector__mapName").textContent = selected.mapName;
-    modeLine(selector.querySelector(".battleSelector__modeLine"), selected);
-    selector.querySelector(".battleSelector__timeLine").textContent = `${selected.date} · ${selected.time}`;
+    setResult(selector.querySelector(".battleSelector__result"), selected);
+    selector.querySelector(".battleSelector__vehicle").textContent = selected.vehicleName;
+    selector.querySelector(".battleSelector__time").textContent = selected.time;
 
+    // The battles come newest first: a day row starts each day.
     selectorItems.textContent = "";
+    let day = null;
     battles.forEach((battle) => {
+        if (battle.day !== day) {
+            day = battle.day;
+            selectorItems.appendChild(element("div", "battleSelector__day", day));
+        }
         const item = element("div", "battleSelector__item");
         item.classList.toggle("battleSelector__itemSelected", battle === selected);
         item.appendChild(element("div", "battleSelector__itemBg"));
@@ -149,21 +168,16 @@ function drawBattleSelector() {
         setImage(image, battle.mapImage);
         item.appendChild(image);
         const info = element("div", "battleSelector__itemInfo");
-        info.appendChild(element("div", "battleSelector__itemMap", battle.mapName));
-        const mode = element("div", "");
-        modeLine(mode, battle);
-        info.appendChild(mode);
+        info.appendChild(titleRow(battle));
+        info.appendChild(element("div", "battleSelector__line battleSelector__vehicle", battle.vehicleName));
         item.appendChild(info);
-        const time = element("div", "battleSelector__itemTime");
-        time.appendChild(element("div", "", battle.date));
-        time.appendChild(element("div", "", battle.time));
-        item.appendChild(time);
+        item.appendChild(element("div", "battleSelector__itemTime", battle.time));
+        // Handlers keep plain values: the model's items are destroyed when the model is filled again.
+        const id = battle.id;
         item.addEventListener("click", (event) => {
             event.stopPropagation();
             setSelectorOpen(false);
-            if (battle.id !== model.selectedId) {
-                model.onSelect({ id: battle.id });
-            }
+            window.model.battleSelector.onSelect({ id });
         });
         selectorItems.appendChild(item);
     });
@@ -181,12 +195,122 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
+// Hits panel: tabs (received or dealt hits), result filters, the chosen hit and the list
+// (window.model.hitsPanel). Every click goes to the presenter, which fills the model again.
+const hitsPanel = document.querySelector(".hitsPanel");
+const hitsFilters = hitsPanel.querySelector(".hitsPanel__filters");
+const hitsList = hitsPanel.querySelector(".hitsPanel__list");
+
+function hitIcon(kind, side) {
+    return element("div", `hitIcon hitIcon__${kind}__${side}`);
+}
+
+
+function chip(selected, onClick) {
+    const node = element("div", "hitsPanel__chip");
+    node.classList.toggle("hitsPanel__chipSelected", selected);
+    node.addEventListener("click", onClick);
+    return node;
+}
+
+function drawHitsPanel() {
+    const model = window.model && window.model.hitsPanel;
+    hitsPanel.classList.toggle("hitsPanel__visible", Boolean(model && model.isVisible));
+    if (!model || !model.isVisible) {
+        return;
+    }
+    const side = model.side;
+    hitsPanel.querySelectorAll(".hitsPanel__tab").forEach((tab) => {
+        const tabSide = tab.getAttribute("data-side");
+        tab.textContent = tabSide === "received" ? model.receivedLabel : model.dealtLabel;
+        tab.classList.toggle("hitsPanel__tabSelected", tabSide === side);
+    });
+
+    hitsFilters.textContent = "";
+    arrayItems(model.filters).forEach((filter) => {
+        const id = filter.id;
+        const node = chip(id === model.selectedFilter, () => window.model.hitsPanel.onFilter({ id }));
+        if (id) {
+            node.appendChild(hitIcon(id, side));
+        } else {
+            node.appendChild(document.createTextNode(model.allLabel));
+        }
+        node.appendChild(element("span", "hitsPanel__count", String(filter.count)));
+        hitsFilters.appendChild(node);
+    });
+
+    const hits = arrayItems(model.hits);
+    hitsPanel.querySelector(".hitsPanel__position").textContent = hits.length
+        ? `${model.selectedHit + 1} / ${hits.length}`
+        : "0 / 0";
+    hitsList.textContent = "";
+    hits.forEach((hit, index) => {
+        const row = element("div", "hitsPanel__row");
+        row.classList.toggle("hitsPanel__rowSelected", index === model.selectedHit);
+        row.appendChild(element("div", "hitsPanel__number", String(hit.number)));
+        row.appendChild(element("div", "hitsPanel__time", hit.time));
+        // Then the order of the client's damage log: damage (none when the hit took none), result, shell, class,
+        // vehicle; the player last.
+        // Like the client's log: the damage, or "xN" crits for a hit on modules without damage.
+        let damage = hit.damage ? String(hit.damage) : "";
+        if (!hit.damage && hit.result === "critical" && hit.critsCount) {
+            damage = `x${hit.critsCount}`;
+        }
+        row.appendChild(element("div", "hitsPanel__damage", damage));
+        row.appendChild(hitIcon(hit.result, side));
+        const shell = element("div", "hitsPanel__shell", hit.shellText);
+        shell.classList.toggle("hitsPanel__shellNone", !hit.shellText);
+        shell.classList.toggle("hitsPanel__shellGold", Boolean(hit.isGoldShell));
+        shell.title = hit.shellName;
+        row.appendChild(shell);
+        row.appendChild(element("div", hit.vehicleClass ? `hitIcon hitIcon__class__${hit.vehicleClass}` : "hitIcon"));
+        row.appendChild(element("div", "hitsPanel__vehicle", hit.vehicleName));
+        row.appendChild(element("div", "hitsPanel__player", hit.playerName));
+        row.addEventListener("click", () => window.model.hitsPanel.onHit({ index }));
+        hitsList.appendChild(row);
+    });
+}
+
+hitsPanel.querySelectorAll(".hitsPanel__tab").forEach((tab) => {
+    tab.addEventListener("click", () => window.model.hitsPanel.onSide({ side: tab.getAttribute("data-side") }));
+});
+hitsPanel.querySelector(".hitsPanel__prev").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: -1 }));
+hitsPanel.querySelector(".hitsPanel__next").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: 1 }));
+
+// Developer tools: the Import and Export buttons of the battles file (window.model.devTools), shown only when they
+// are on.
+const devTools = document.querySelector(".devTools");
+const devToolsImport = devTools.querySelector(".devTools__import");
+const devToolsExport = devTools.querySelector(".devTools__export");
+
+function drawDevTools() {
+    const model = window.model && window.model.devTools;
+    devTools.classList.toggle("devTools__visible", Boolean(model && model.isVisible));
+    if (model) {
+        devToolsImport.textContent = model.importLabel;
+        devToolsExport.textContent = model.exportLabel;
+    }
+}
+
+devToolsImport.addEventListener("click", () => window.model.devTools.onImport());
+devToolsExport.addEventListener("click", () => window.model.devTools.onExport());
+
+function draw() {
+    drawBattleSelector();
+    drawHitsPanel();
+    drawDevTools();
+}
+
+// The page draws again on a change of the model or of any of its parts: a change inside a part (its arrays, its
+// selection) is told to the observers of that part's path.
 engine.whenReady.then(() => {
-    const callbackID = viewEnv.addDataChangedCallback("model", 0, true);
-    engine.on("viewEnv.onDataChanged", (data, indexes, callbackIDs) => {
-        if (callbackIDs.includes(callbackID)) {
-            drawBattleSelector();
+    const callbackIDs = ["model", "model.battleSelector", "model.hitsPanel", "model.devTools"].map((path) =>
+        viewEnv.addDataChangedCallback(path, 0, true),
+    );
+    engine.on("viewEnv.onDataChanged", (data, indexes, changedIDs) => {
+        if (callbackIDs.some((id) => changedIDs.indexOf(id) !== -1)) {
+            draw();
         }
     });
-    drawBattleSelector();
+    draw();
 });

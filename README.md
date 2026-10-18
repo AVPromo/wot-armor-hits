@@ -6,7 +6,8 @@ Work in progress. Now the mod:
 
 - adds the **Armor Hits** button to the hangar; it opens the mod's own screen over the 3D hangar: the current
   vehicle, shown and turned like on the armor page, the battle selector with the battles and replays of this game
-  session (kept in memory only), and the layout of the other panels;
+  session (kept in memory only), the hits on your vehicle and your hits in the selected battle, and the layout of the
+  other panels;
 - records every battle (and replay): each call from the server about shots and damage is written to a JSON Lines file
   in `<game>/mods/sagtary_armor_hits/battles/`, one file per battle. The files are not deleted by the mod, and they
   hold the names, account ids and clans of the players of the battle.

@@ -31,7 +31,7 @@ Core:
 
 | Module             | Does                                                                         |
 |--------------------|------------------------------------------------------------------------------|
-| `config.py`        | ids, resource paths, texts, limits                                           |
+| `config.py`        | ids, resource paths, texts, limits, the developer tools switch `DEV_TOOLS`   |
 | `lang.py`          | texts in the client language                                                 |
 | `settings.py`      | user settings from `mods/configs/sagtary_armor_hits/config.json`             |
 | `optional_mods.py` | the optional third-party mods, or `None` when not installed: OpenWG Gameface (`gfModInject`), ModsList API (`modsListApi`) |
@@ -40,7 +40,11 @@ Data, without UI (`data/`):
 
 | Module                    | Does                                                                         |
 |---------------------------|------------------------------------------------------------------------------|
-| `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays) |
+| `data/record.py`          | `Record`: a plain data object with fields and defaults (`FIELDS`) and nested records (`NESTED`), written to and read from a dict; the base of `Battle` and `Hit` |
+| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects; its result like the client's damage log: damage, critical, blocked), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`) |
+| `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays, and its winner on `onRoundFinished`) |
+| `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`, `vehicleId`), so a battle from a file shows in the current client language |
+| `data/battle_file.py`     | the battles written to a JSON file and read back (`BattleFile`), for the developer tools; the file has `formatVersion` (its layout) and `appVersion` (the mod that wrote it) |
 | `data/battle_recorder.py` | raw record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/battles/` |
 
 UI (`views/`), a package per screen or button. The view models, the data the Gameface pages read, are apart in
@@ -52,12 +56,16 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/hits_state.py`                | lobby state of the screen: a page of the lobby navigation, the armor page scene and camera |
 | `views/hits/hits_view.py`                 | window and Gameface view of the screen: the full screen page, the mouse over the scene, the panel presenters |
 | `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
+| `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit |
+| `views/hits/dev_tools.py`                 | presenter of the developer tools: Import reads the battles file into the `BattleStore`, Export writes the store to it; the result is a system message |
 | `views/lobby_button/lobby_button.py`      | the hangar button that opens the screen; picks one of the two below |
 | `views/lobby_button/mods_list_entry.py`   | entry in the ModsList API mods list (optional)               |
 | `views/lobby_button/footer_button.py`     | button of its own in the hangar footer, next to the game menu button |
 | `views/models/hits_view_model.py`         | view model of the hits screen                                |
 | `views/models/battle_selector_model.py`   | view models of the battle selector and of a battle in its list |
 | `views/models/footer_button_model.py`     | view model of the footer button                              |
+| `views/models/hits_panel_model.py`        | view models of the hits panel, its hits, targets and filters |
+| `views/models/dev_tools_model.py`         | view model of the developer tools                            |
 
 Planned, as the features come (after Poliroid's Battle Hits, which does the same job):
 
@@ -129,12 +137,26 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   `CameraRelatedEvents.LOBBY_VIEW_MOUSE_MOVE`, and `onMouseOver3dScene` fires `NOTIFY_CURSOR_OVER_3DSCENE`; the
   panels' container lets the mouse through (`pointer-events: none`), the panels do not.
 
-The battle selector shows the selected battle (map preview `gui/maps/icons/map/small/<map>.png`, map, mode from
-`R.strings.menu.loading.battleTypes`, vehicle, date and time in the client format) and opens the list of the session's
-battles; it is styled like the client's dropdowns (the armor page's overlay type: the client's arrow and list item
-background). The battles are kept in memory only, so the list starts empty with every game start. To add a field:
+The battle selector shows the selected battle (map preview `gui/maps/icons/map/small/<map>.png`, map, result,
+vehicle, time) and opens the list of the session's battles grouped by date. Every text of it is the client's: names by
+the ids, the result from the client's `#event_boards:summary/result/*` texts, the date and the time in the client format; it is styled like the client's dropdowns (the armor page's overlay type: the client's arrow and list item
+background). The battles are kept in memory only, so the list starts empty with every game start; without battles the card says so. To add a field:
 a field in `Battle.FIELDS` and in `battleFromAvatar`, a property in `BattleItemModel`, a line in `_fillItem`, and its
 place on the page.
+
+The hits panel under the selector shows the hits of the selected battle: on the player's vehicle or by the player,
+the result filters with their counts, the chosen hit and the list (number and time, then the order of the client's damage log:
+damage (none when the hit took none, "xN" crits for a hit on modules without damage, like the client's log),
+result, shell kind (white plate, gold for a premium shell), vehicle class, vehicle; the player last). Its icons are the client's damage log icons, taken from the
+client's battle atlas (`gui/flash/atlases/commonBattleLobby.dds`, positions from its `.xml`) as CSS sprites; the
+shell kinds are the client's damage log texts (`#ingame_gui:damageLog/shellType/*`).
+
+The developer tools are the Import and Export buttons under the battle selector: they read and write the screen's
+battles to `mods/sagtary_armor_hits/battles.json` (`BATTLES_FILE`), so the screen can be tested without playing a
+battle after every game start. They are on with `DEV_TOOLS = True` in `config.py` and must be off in a release. A
+`.env` file is not used: Python 2.7 of the client has no reader of it (python-dotenv is a third-party package), and
+the mod runs in the game folder, not in this repository. Without the battles file (`DEV_TOOLS` off) the view makes
+no developer tools presenter and the page hides the buttons.
 
 The armor overlay of the client's armor screen is a CGF component (`ArmorInspectorComponent`) put on the hangar
 vehicle, so the hits screen can show it without the Vehicle Hub.

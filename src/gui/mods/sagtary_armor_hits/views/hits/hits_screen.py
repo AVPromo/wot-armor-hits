@@ -3,7 +3,8 @@
 
 HitsScreen puts the screen into the client when the lobby app initializes: the Scaleform view setting of the window
 (hits_view.HitsWindow) and the lobby state (hits_state.HitsState) with its navigation transition. The state asks for
-its view with a LOAD_VIEW event, and HitsScreen loads the view with the data the screen shows (the BattleStore).
+its view with a LOAD_VIEW event, and HitsScreen loads the view with the data the screen shows (the BattleStore,
+and the BattleFile of the developer tools or None).
 """
 import logging
 
@@ -32,8 +33,9 @@ def _registerTransitions(machine):
 
 class HitsScreen(object):
 
-    def __init__(self, battleStore):
+    def __init__(self, battleStore, battleFile=None):
         self._battleStore = battleStore
+        self._battleFile = battleFile
 
     def install(self):
         g_eventBus.addListener(events.AppLifeCycleEvent.INITIALIZING, self._onAppInitializing)
@@ -69,6 +71,7 @@ class HitsScreen(object):
             return
         try:
             dependency.instance(IAppLoader).getApp().loadView(event.loadParams, ctx=event.ctx,
-                                                               battleStore=self._battleStore)
+                                                               battleStore=self._battleStore,
+                                                               battleFile=self._battleFile)
         except Exception:
             _logger.exception('hits screen: cannot load the view')

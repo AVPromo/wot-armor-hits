@@ -104,9 +104,29 @@ body {
     border-color: rgba(255, 255, 255, 0.25);
 }
 
+/* No battles yet: the card shows only the empty title. */
 .battleSelector__empty .battleSelector__card {
     cursor: default;
     border-color: rgba(255, 255, 255, 0.1);
+}
+
+.battleSelector__empty .battleSelector__mapImage,
+.battleSelector__empty .battleSelector__result,
+.battleSelector__empty .battleSelector__vehicle,
+.battleSelector__empty .battleSelector__time,
+.battleSelector__empty .battleSelector__arrow {
+    display: none;
+}
+
+.battleSelector__empty .battleSelector__info {
+    padding-left: 14rem;
+}
+
+.battleSelector__empty .battleSelector__mapName {
+    font-size: 15rem;
+    font-weight: normal;
+    white-space: normal;
+    color: var(--color-general-secondary);
 }
 
 .battleSelector__mapImage {
@@ -127,7 +147,16 @@ body {
     padding-left: 12rem;
 }
 
+.battleSelector__titleRow {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    min-width: 0;
+}
+
 .battleSelector__mapName {
+    flex-shrink: 1;
+    min-width: 0;
     font-size: 20rem;
     font-weight: bold;
     line-height: 22rem;
@@ -135,6 +164,27 @@ body {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+/* The result of the battle after the map name, in the colors of a win or a defeat; hidden when not known. */
+.battleSelector__result {
+    flex-shrink: 0;
+    margin-left: 8rem;
+    font-size: 14rem;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.battleSelector__resultWin {
+    color: #8fc95a;
+}
+
+.battleSelector__resultDefeat {
+    color: #e0503d;
+}
+
+.battleSelector__resultDraw {
+    color: var(--color-general-secondary);
 }
 
 .battleSelector__line {
@@ -151,10 +201,12 @@ body {
     color: var(--color-general-primary);
 }
 
-.battleSelector__empty .battleSelector__mapName {
-    font-size: 15rem;
-    font-weight: normal;
-    white-space: normal;
+/* Time of the battle on the right of the card, like in the list items. */
+.battleSelector__time {
+    flex-shrink: 0;
+    padding-left: 10rem;
+    font-size: 14rem;
+    line-height: 17rem;
     color: var(--color-general-secondary);
 }
 
@@ -169,10 +221,6 @@ body {
 
 .battleSelector__open .battleSelector__arrow {
     transform: rotate(-180deg);
-}
-
-.battleSelector__empty .battleSelector__arrow {
-    display: none;
 }
 
 .battleSelector__list {
@@ -193,7 +241,8 @@ body {
     display: block;
 }
 
-.battleSelector__listTitle {
+/* A day of the list: the battles below it were played that day. */
+.battleSelector__day {
     padding: 4rem 12rem 6rem;
     font-size: 12rem;
     text-transform: uppercase;
@@ -264,15 +313,333 @@ body {
     text-overflow: ellipsis;
 }
 
+.battleSelector__item .battleSelector__line {
+    margin-top: 0;
+}
+
 .battleSelector__itemTime {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
     flex-shrink: 0;
     padding-left: 10rem;
     font-size: 14rem;
     line-height: 17rem;
+}
+
+/* Developer tools: small buttons under the battle selector, in the colors of the selector card. */
+.devTools {
+    display: none;
+    flex-shrink: 0;
+    margin-top: 8rem;
+    pointer-events: auto;
+}
+
+.devTools__visible {
+    display: flex;
+}
+
+.devTools__button {
+    height: 26rem;
+    margin-right: 6rem;
+    padding: 0 14rem;
+    font-size: 13rem;
+    line-height: 24rem;
+    color: var(--color-general-secondary);
+    background-color: rgba(14, 16, 18, 0.88);
+    border: 1rem solid rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+}
+
+.devTools__button:hover {
+    color: var(--color-general-primary);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.devTools__button:active {
+    background-color: rgba(40, 42, 44, 0.88);
+}
+
+/* Hits panel: tabs, result filters, the chosen hit's position and the list. */
+/* As high as its content; with many hits it shrinks to the free height and the list scrolls. */
+.hitsPanel {
+    display: none;
+    flex-direction: column;
+    flex-grow: 0;
+    flex-shrink: 1;
+    min-height: 0;
+    margin-top: 8rem;
+    background-color: rgba(14, 16, 18, 0.88);
+    border: 1rem solid rgba(255, 255, 255, 0.1);
+    pointer-events: auto;
+}
+
+.hitsPanel__visible {
+    display: flex;
+}
+
+.hitsPanel__tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.hitsPanel__tab {
+    flex-grow: 1;
+    flex-basis: 0;
+    height: 38rem;
+    font-size: 15rem;
+    font-weight: bold;
+    line-height: 38rem;
+    text-align: center;
+    text-transform: uppercase;
+    color: var(--color-general-tertiary);
+    border-bottom: 3rem solid transparent;
+    cursor: pointer;
+}
+
+.hitsPanel__tab:hover {
+    color: var(--color-general-secondary);
+}
+
+.hitsPanel__tabSelected,
+.hitsPanel__tabSelected:hover {
+    color: var(--color-general-primary);
+    border-bottom-color: #e0a248;
+    background-color: rgba(224, 162, 72, 0.08);
+}
+
+.hitsPanel__chips {
+    display: flex;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    padding: 8rem 10rem 4rem;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.hitsPanel__chip {
+    display: flex;
+    align-items: center;
+    height: 26rem;
+    margin: 0 6rem 4rem 0;
+    padding: 0 9rem;
+    font-size: 13rem;
+    color: var(--color-general-secondary);
+    border: 1rem solid rgba(255, 255, 255, 0.15);
+    cursor: pointer;
+}
+
+.hitsPanel__chip:hover {
+    color: var(--color-general-primary);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.hitsPanel__chipSelected,
+.hitsPanel__chipSelected:hover {
+    color: #f2c47e;
+    border-color: #e0a248;
+    background-color: rgba(224, 162, 72, 0.14);
+}
+
+.hitsPanel__count {
+    margin-left: 5rem;
+    color: var(--color-general-tertiary);
+}
+
+.hitsPanel__chip .hitIcon {
+    margin-right: 5rem;
+}
+
+.hitsPanel__nav {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 40rem;
+    padding: 0 10rem;
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.1);
+}
+
+.hitsPanel__position {
+    flex-grow: 1;
+    font-size: 16rem;
+    font-weight: bold;
+    color: var(--color-general-primary);
+}
+
+.hitsPanel__step {
+    width: 28rem;
+    height: 28rem;
+    margin-left: 6rem;
+    border: 1rem solid rgba(255, 255, 255, 0.15);
+    background: url(img://gui/maps/icons/lobby/armor_inspector/arrow.png) no-repeat center;
+    background-size: 9rem 6rem;
+    cursor: pointer;
+}
+
+.hitsPanel__step:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.hitsPanel__prev {
+    transform: rotate(90deg);
+}
+
+.hitsPanel__next {
+    transform: rotate(-90deg);
+}
+
+.hitsPanel__list {
+    flex-grow: 0;
+    flex-shrink: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.hitsPanel__row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 28rem;
+    padding: 0 10rem 0 7rem;
+    font-size: 13rem;
+    color: var(--color-general-secondary);
+    border-left: 3rem solid transparent;
+    border-top: 1rem solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+}
+
+.hitsPanel__row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.hitsPanel__rowSelected,
+.hitsPanel__rowSelected:hover {
+    color: var(--color-general-primary);
+    border-left-color: #e0a248;
+    background-color: rgba(224, 162, 72, 0.1);
+}
+
+.hitsPanel__number {
+    width: 22rem;
+    flex-shrink: 0;
+    color: var(--color-general-tertiary);
+}
+
+.hitsPanel__time {
+    width: 38rem;
+    flex-shrink: 0;
+    color: var(--color-general-tertiary);
+}
+
+.hitsPanel__row .hitIcon {
+    margin-right: 6rem;
+}
+
+.hitsPanel__damage + .hitIcon {
+    margin-left: 6rem;
+}
+
+.hitsPanel__vehicle {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-general-primary);
+}
+
+.hitsPanel__player {
+    flex-grow: 1;
+    flex-basis: 0;
+    min-width: 0;
+    margin-left: 6rem;
+    font-size: 12rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--color-general-tertiary);
+}
+
+/* The shell kind on a plate, like in the client's damage log (its atlas: whiteCenter, goldCenter): white at half
+   opacity, gold for a premium shell, the text dark. */
+.hitsPanel__shell {
+    flex-shrink: 0;
+    min-width: 24rem;
+    height: 14rem;
+    margin-right: 6rem;
+    padding: 0 4rem;
+    font-size: 11rem;
+    font-weight: bold;
+    line-height: 14rem;
+    text-align: center;
+    color: #121212;
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 3rem;
+}
+
+.hitsPanel__shellGold {
+    background-color: #ffc262;
+}
+
+.hitsPanel__shellNone {
+    visibility: hidden;
+}
+
+.hitsPanel__damage {
+    width: 34rem;
+    flex-shrink: 0;
+    font-weight: bold;
+    text-align: right;
+    color: var(--color-general-primary);
+}
+
+/* The client's damage log icons (16 x 16), from its battle atlas. */
+.hitIcon {
+    width: 16rem;
+    height: 16rem;
+    flex-shrink: 0;
+    background-image: url(img://gui/flash/atlases/commonBattleLobby.dds);
+    background-size: 1024rem 524rem;
+    background-repeat: no-repeat;
+}
+
+.hitIcon__damage__received {
+    background-position: -1001rem -102rem;
+}
+
+.hitIcon__damage__dealt {
+    background-position: -1001rem -85rem;
+}
+
+/* A hit on a module without damage: the orange critical icon on both sides (the client's green one is for
+   dealt crits with damage, which show the damage icon here). */
+.hitIcon__critical__received,
+.hitIcon__critical__dealt {
+    background-position: -1001rem -51rem;
+}
+
+.hitIcon__blocked__received,
+.hitIcon__blocked__dealt {
+    background-position: -813rem -412rem;
+}
+
+.hitIcon__class__light {
+    background-position: -796rem -410rem;
+}
+
+.hitIcon__class__middle {
+    background-position: -837rem -395rem;
+}
+
+.hitIcon__class__heavy {
+    background-position: -854rem -378rem;
+}
+
+.hitIcon__class__destroyer {
+    background-position: -1001rem -153rem;
+}
+
+.hitIcon__class__art {
+    background-position: -982rem -292rem;
 }
 
 /* Layout marks: plain boxes for the panels of the design, without their content. */
@@ -282,18 +649,6 @@ body {
     border: 1rem solid #000000;
     font-size: 12rem;
     color: rgba(255, 255, 255, 0.6);
-}
-
-.layout__battle {
-    height: 64rem;
-    flex-shrink: 0;
-    background-color: rgba(60, 120, 200, 0.35);
-}
-
-.layout__hits {
-    flex-grow: 1;
-    margin-top: 12rem;
-    background-color: rgba(60, 170, 110, 0.35);
 }
 
 .layout__overlay {

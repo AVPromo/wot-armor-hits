@@ -19,18 +19,37 @@
                         <div class="battleSelector__card">
                             <div class="battleSelector__mapImage"></div>
                             <div class="battleSelector__info">
-                                <div class="battleSelector__mapName"></div>
-                                <div class="battleSelector__line battleSelector__modeLine"></div>
-                                <div class="battleSelector__line battleSelector__timeLine"></div>
+                                <div class="battleSelector__titleRow">
+                                    <div class="battleSelector__mapName"></div>
+                                    <div class="battleSelector__result"></div>
+                                </div>
+                                <div class="battleSelector__line battleSelector__vehicle"></div>
                             </div>
+                            <div class="battleSelector__time"></div>
                             <div class="battleSelector__arrow"></div>
                         </div>
-                        <div class="battleSelector__list">
-                            <div class="battleSelector__listTitle"></div>
-                            <div class="battleSelector__items"></div>
-                        </div>
+                        <!-- The battles grouped by day: a day row, then its battles. -->
+                        <div class="battleSelector__list battleSelector__items"></div>
                     </div>
-                    <div class="layout layout__hits">Hits: tabs, targets, result filter, hit N of M, list</div>
+                    <!-- Developer tools: Import and Export of the battles file, shown when they are on (HitsView.js). -->
+                    <div class="devTools">
+                        <div class="devTools__button devTools__import"></div>
+                        <div class="devTools__button devTools__export"></div>
+                    </div>
+                    <!-- Hits panel: the hits of the selected battle on the player's vehicle or by the player (HitsView.js). -->
+                    <div class="hitsPanel">
+                        <div class="hitsPanel__tabs">
+                            <div class="hitsPanel__tab" data-side="received"></div>
+                            <div class="hitsPanel__tab" data-side="dealt"></div>
+                        </div>
+                        <div class="hitsPanel__chips hitsPanel__filters"></div>
+                        <div class="hitsPanel__nav">
+                            <div class="hitsPanel__position"></div>
+                            <div class="hitsPanel__step hitsPanel__prev"></div>
+                            <div class="hitsPanel__step hitsPanel__next"></div>
+                        </div>
+                        <div class="hitsPanel__list"></div>
+                    </div>
                 </div>
                 <div class="hitsView__right">
                     <div class="layout layout__overlay">Overlay type</div>
