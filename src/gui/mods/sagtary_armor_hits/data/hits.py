@@ -18,11 +18,13 @@
   damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after; the client's damage info
   of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) adds the modules and crew the shell damaged, the same
   way. The client tells which modules it damaged only on the player's own vehicle. The distance is between the two
-  vehicles when the hit comes, when the client sees the shooter.
+  vehicles when the hit comes, when the client sees the shooter. A splash keeps where the shell burst, in the hit
+  vehicle's chassis space (like the points), even when it burst on the ground nearby.
 """
 import logging
 
 import BigWorld
+import Math
 from Avatar import PlayerAvatar
 from BattleFeedbackCommon import BATTLE_EVENT_TYPE, NONE_SHELL_TYPE
 from constants import ARENA_PERIOD, DAMAGE_INFO_CODES, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_EFFECT
@@ -30,7 +32,7 @@ from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
 from PlayerEvents import g_playerEvents
 from Vehicle import Vehicle
 from VehicleEffects import DamageFromShotDecoder
-from vehicle_systems.tankStructure import TankPartIndexes
+from vehicle_systems.tankStructure import TankPartIndexes, TankPartNames
 
 from gui.mods.sagtary_armor_hits.data.record import Record
 from gui.mods.sagtary_armor_hits.trace import calls, hitText
@@ -90,6 +92,8 @@ class Hit(Record):
         ('points', ()),         # the points the shell hit, in order (HitPoint); none for a splash
         ('distance', 0.0),      # metres between the shooter and the target at the hit; 0 when not known
         ('damagedDevices', ()), # what the shell did to the player's vehicle (received hits), in order (DamagedDevice)
+        ('splashCenter', ()),   # (x, y, z) where a splash's shell burst, in metres in the hit vehicle's chassis space
+                                # (part 0 of the points); () when not known
     )
     NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice}
     __slots__ = tuple(name for name, _ in FIELDS)
@@ -125,6 +129,22 @@ def vehicleDescr(descriptor):
 
 def _vector(vector):
     return tuple(round(value, _POINT_DECIMALS) for value in (vector.x, vector.y, vector.z))
+
+
+def _chassisPoint(vehicle, point):
+    # A point of the scene in the vehicle's chassis space (the node the client puts the chassis hit effects on, else
+    # the vehicle's own matrix), () when not known.
+    try:
+        nodeName = TankPartNames.getActualNodeNameByPartName(TankPartNames.CHASSIS)
+        matrix = Math.Matrix(vehicle.appearance.compoundModel.node(nodeName))
+    except Exception:
+        try:
+            matrix = Math.Matrix(vehicle.matrix)
+        except Exception:
+            _logger.debug('hits: no matrix of vehicle %s', vehicle.id, exc_info=True)
+            return ()
+    matrix.invert()
+    return _vector(matrix.applyPoint(Math.Vector3(point)))
 
 
 def _battleTime(arena):
@@ -261,8 +281,9 @@ class HitCollector(object):
             if field == 'dealtHits':
                 hit = hit.replace(isGoldShell=self._ownShellIsGold(player, hit.shellType))
         else:
+            center = _argument(args, kwargs, 1, 'center')
             hit = Hit(shellType=SHELL_TYPES.HIGH_EXPLOSIVE, damage=_argument(args, kwargs, 3, 'damage') or 0,
-                      isSplash=True)
+                      isSplash=True, splashCenter=_chassisPoint(vehicle, center) if center is not None else ())
         arenaVehicle = player.arena.vehicles.get(otherID) or {}
         descriptor = arenaVehicle.get('vehicleType')
         hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',

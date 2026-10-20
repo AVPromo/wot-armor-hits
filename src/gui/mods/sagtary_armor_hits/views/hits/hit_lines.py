@@ -23,7 +23,10 @@ direction there; a piece to the next point after a ricochet or spaced armor, whe
 vehicle again, or its main armor behind the spaced one); after a ricochet that is the last point, a piece of
 _RICOCHET metres in the mirrored direction (the client does not tell where the shell went). The way after a
 penetration is not drawn. A high explosive shell bursts at its first point: its other points are what the burst hit,
-not its way, so only the way to the first point is drawn.
+not its way, so only the way to the first point is drawn. A splash (Hit.splashCenter) has no points: a cross of
+_BURST metres where the shell burst and a post from there down (or up) to the level of the vehicle's tracks, the
+chassis space's ground: the shell burst on a slope, in a hole or on a rock or a wall, while the hangar's floor is
+flat. The explosion radius is not drawn: about 10 m for a big gun, it covers the hangar.
 
 A point is the middle of the shell's way through the part the server sends, and the shell's direction is along that
 way, like the Battle Hits mod places its hits: data only, so a point does not wait for the vehicle's collision model.
@@ -62,6 +65,8 @@ _RESULT_COLOURS = {
 # Metres: the way drawn before the first point and after a ricochet.
 _LEAD = 2.5
 _RICOCHET = 1.5
+# Metres: the arms of a splash's burst cross.
+_BURST = 0.3
 _NORMAL_RETRY = 0.2
 _NORMAL_TRIES = 5
 # The shooter view: the camera's distance to the hit point in metres and its flight in seconds.
@@ -108,9 +113,36 @@ def _armorNormal(collisions, point):
     return _unit(normal)
 
 
+def _drawn(hit):
+    # The hit has something to draw: its points or where its splash burst.
+    return bool(hit.points or hit.splashCenter)
+
+
+def _splashWay(hit, compoundModel):
+    # ([(start, end)] pieces of a splash: the burst cross and its post to the tracks' level, (burst, the direction to
+    # the vehicle)).
+    chassis = _partNode(compoundModel, TankPartIndexes.CHASSIS)
+    if chassis is None:
+        return [], None
+    x, y, z = hit.splashCenter
+    center = chassis.applyPoint(Math.Vector3(x, y, z))
+    foot = chassis.applyPoint(Math.Vector3(x, 0.0, z))
+    pieces = [(center - axis * _BURST, center + axis * _BURST) for axis in (
+        _unit(chassis.applyVector(Math.Vector3(1, 0, 0))), _unit(chassis.applyVector(Math.Vector3(0, 1, 0))),
+        _unit(chassis.applyVector(Math.Vector3(0, 0, 1))))]
+    if abs(y) > _BURST:
+        pieces.append((center, foot))
+    direction = chassis.translation - center
+    if direction.length < 1e-3:
+        direction = chassis.applyVector(Math.Vector3(0, 0, 1))
+    return pieces, (center, _unit(direction))
+
+
 def _hitWay(hit, compoundModel, collisions):
     # ([(start, end)] pieces of the hit's way in the scene, (first point, shell direction) or None, whether a
     # ricochet's way out waits for the collision model).
+    if not hit.points and hit.splashCenter:
+        return _splashWay(hit, compoundModel) + (False,)
     points = []
     for point in hit.points:
         start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
@@ -210,8 +242,8 @@ class HitLinesPresenter(object):
         others = ()
         if self._scenePanel.showsAllLines:
             selected = self._hitsPanel.selectedNumber
-            others = tuple(other for number, other in self._hitsPanel.shownHits if number != selected and other.points)
-        chosen = hit if hit is not None and hit.points else None
+            others = tuple(other for number, other in self._hitsPanel.shownHits if number != selected and _drawn(other))
+        chosen = hit if hit is not None and _drawn(hit) else None
         target = (vehicle, chosen, others) if isinstance(vehicle, tuple) and (chosen or others) else None
         calls('hit lines: update')
         _logger.info('scene: hit lines: selection battle %s, side %s, hit at %s with %d points, %d other hits, '
@@ -290,6 +322,8 @@ class HitLinesPresenter(object):
             waitsNormal = waitsNormal or waits
             for start, end in pieces:
                 self._lines.add(start, end, _colours(chosen))
+            if chosen.splashCenter and not chosen.points:
+                _logger.info('check: hit lines: splash at %s of the chassis', chosen.splashCenter)
         if waitsNormal and self._normalTries < _NORMAL_TRIES:
             self._normalTries += 1
             self._callbackID = BigWorld.callback(_NORMAL_RETRY, self._onNormalRetry)
