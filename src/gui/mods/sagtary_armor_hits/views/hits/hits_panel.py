@@ -13,6 +13,7 @@ from Event import Event
 
 from gui.mods.sagtary_armor_hits.data.client_names import clientText, vehicleClass, vehicleShortName
 from gui.mods.sagtary_armor_hits.data.hits import HitResult
+from gui.mods.sagtary_armor_hits.trace import calls
 from gui.mods.sagtary_armor_hits.views.models.hits_panel_model import HitFilterModel, HitItemModel
 
 _logger = logging.getLogger('sagtary.armor_hits')
@@ -112,25 +113,25 @@ class HitsPanelPresenter(object):
     def _onBattleSelected(self, battle):
         self._battleId = battle.battleId if battle is not None else None
         self._filter, self._hitNumber = '', None
-        self._update()
+        self._update('battle selected')
 
     def _onSide(self, args=None):
         side = (args or {}).get('side')
         if side in _SIDES and side != self._side:
             self._side, self._filter, self._hitNumber = side, '', None
-            self._update()
+            self._update('side')
 
     def _onFilter(self, args=None):
         result = (args or {}).get('id') or ''
         self._filter = result if result in HitResult.ALL else ''
-        self._update()
+        self._update('filter')
 
     def _onHit(self, args=None):
         index = int((args or {}).get('index', -1))
         shown = self._shownHits()
         if 0 <= index < len(shown):
             self._hitNumber = shown[index][0]
-            self._update()
+            self._update('hit clicked')
 
     def _onStep(self, args=None):
         shown = self._shownHits()
@@ -140,7 +141,7 @@ class HitsPanelPresenter(object):
         numbers = [number for number, _ in shown]
         index = numbers.index(self._hitNumber) if self._hitNumber in numbers else 0
         self._hitNumber = numbers[(index + delta) % len(numbers)]
-        self._update()
+        self._update('step %d' % delta)
 
     def _sideHits(self):
         # [(number, hit)] of the battle on the chosen side, numbered from 1 in battle order.
@@ -153,7 +154,7 @@ class HitsPanelPresenter(object):
         hits = self._sideHits() or []
         return [(number, hit) for number, hit in hits if not self._filter or hit.result == self._filter]
 
-    def _update(self):
+    def _update(self, reason='store changed'):
         hits = self._sideHits()
         with self._model.transaction() as model:
             model.setIsVisible(hits is not None)
@@ -180,4 +181,6 @@ class HitsPanelPresenter(object):
                 hitModels.addViewModel(item)
             hitModels.invalidate()
             model.setSelectedHit(numbers.index(self._hitNumber) if self._hitNumber in numbers else -1)
+        calls('hits panel: changed', '%s; battle %s, side %s, filter %r, hit %s of %d shown, %d listeners' % (
+            reason, self._battleId, self._side, self._filter, self._hitNumber, len(shown), len(self.onChanged)))
         self.onChanged()

@@ -12,8 +12,8 @@ header and the footer.
 
 The page passes mouse drags and the wheel over the 3D scene to the hangar camera (onMoveSpace, onMouseOver3dScene),
 like the client's SceneWrapper, so the camera turns around the vehicle. The panels, the hangar vehicle and the hit
-lines in the scene have presenters of their own, made here with the data they show. The developer tools (Import and Export of the battles file) are there only when
-the view is given a battle file (config.DEV_TOOLS).
+lines in the scene have presenters of their own, made here with the data they show. The file buttons (save the
+chosen battle to its file, load the battle files) are there when the view is given the battle files.
 """
 from frameworks.wulf import WindowFlags
 from gui.hangar_cameras.hangar_camera_common import CameraRelatedEvents
@@ -23,14 +23,16 @@ from gui.impl.pub.view_component import ViewComponent
 from gui.shared import EVENT_BUS_SCOPE, events, g_eventBus
 
 from gui.mods.sagtary_armor_hits.lang import text
+from gui.mods.sagtary_armor_hits.trace import summary
 from gui.mods.sagtary_armor_hits.views.hits.armor_tooltip import ArmorTooltipPresenter
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
-from gui.mods.sagtary_armor_hits.views.hits.dev_tools import DevToolsPresenter
+from gui.mods.sagtary_armor_hits.views.hits.file_buttons import FileButtonsPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import HangarVehiclePresenter
 from gui.mods.sagtary_armor_hits.views.hits.hit_lines import HitLinesPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.overlay_panel import OverlayPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.scene_panel import ScenePanelPresenter
+from gui.mods.sagtary_armor_hits.views.hits.shot_panel import ShotPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import SceneLog
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
 
@@ -38,12 +40,18 @@ from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewMod
 VIEW_ALIAS = 'sagtaryArmorHitsView'
 
 
+# The shot panel's texts.
+_SHOT_TEXTS = ('shot/shooter', 'shot/target', 'shot/damage', 'shot/penetration', 'shot/armor', 'shot/angle',
+               'shot/distance', 'shot/crits', 'shot/hp', 'shot/mm', 'shot/m', 'shot/avgDamage', 'shot/avgPenetration',
+               'shot/chance', 'shot/nominal', 'shot/spaced', 'shot/ricochet')
+
+
 class HitsView(ViewComponent):
 
-    def __init__(self, battleStore, battleFile=None):
+    def __init__(self, battleStore, battleFiles=None):
         super(HitsView, self).__init__(R.mods.sagtary_armor_hits.views.HitsView(), HitsViewModel)
         self._battleStore = battleStore
-        self._battleFile = battleFile
+        self._battleFiles = battleFiles
         self._presenters = []
 
     def _getEvents(self):
@@ -52,6 +60,7 @@ class HitsView(ViewComponent):
 
     def _onLoading(self, *args, **kwargs):
         super(HitsView, self)._onLoading(*args, **kwargs)
+        summary('before the screen')
         model = self.getViewModel()
         # The scene's log first: it logs the client's events while the others set the scene up.
         self._presenters.append(SceneLog())
@@ -66,14 +75,19 @@ class HitsView(ViewComponent):
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
         # The scene panel's choices: which lines are drawn over that vehicle, the shooter view.
         scenePanel = ScenePanelPresenter(model.scenePanel, {
-            'lines': text('lines/title'), 'current': text('lines/current'), 'shooter': text('camera/shooter')})
+            'current': text('lines/current'), 'shooter': text('camera/shooter')}, hitsPanel)
         self._presenters.append(scenePanel)
-        self._presenters.append(HitLinesPresenter(hitsPanel, scenePanel))
+        hitLines = HitLinesPresenter(hitsPanel, scenePanel)
+        self._presenters.append(hitLines)
         overlayPanel = OverlayPanelPresenter(model.overlayPanel, hitsPanel)
         self._presenters.append(overlayPanel)
         self._presenters.append(ArmorTooltipPresenter(overlayPanel))
-        if self._battleFile is not None:
-            self._presenters.append(DevToolsPresenter(model.devTools, self._battleStore, self._battleFile))
+        # The chosen hit's details: its shell from the overlay panel, its line from the hit lines.
+        self._presenters.append(ShotPanelPresenter(model.shotPanel, hitsPanel, overlayPanel, hitLines, dict(
+            (key.split('/')[1], text(key)) for key in _SHOT_TEXTS)))
+        if self._battleFiles is not None:
+            self._presenters.append(FileButtonsPresenter(model.fileButtons, self._battleStore, self._battleFiles, hitsPanel, {
+                'save': text('file/save'), 'import': text('file/import'), 'imported': text('file/imported'), 'exported': text('file/exported'), 'failed': text('file/failed')}))
         for presenter in self._presenters:
             presenter.init()
 
@@ -81,8 +95,9 @@ class HitsView(ViewComponent):
         for presenter in reversed(self._presenters):
             presenter.fini()
         self._presenters = []
+        summary('while the screen was open')
         self._battleStore = None
-        self._battleFile = None
+        self._battleFiles = None
         super(HitsView, self)._finalize()
 
     @staticmethod
@@ -102,8 +117,8 @@ class HitsView(ViewComponent):
 
 class HitsWindow(WindowImpl):
 
-    def __init__(self, layer, battleStore, battleFile=None, **kwargs):
+    def __init__(self, layer, battleStore, battleFiles=None, **kwargs):
         # The client's view loader makes the window with the keyword arguments of App.loadView: HitsScreen gives the
-        # battleStore and the battleFile there, the lobby state gives its ctx.
-        super(HitsWindow, self).__init__(content=HitsView(battleStore, battleFile), wndFlags=WindowFlags.WINDOW,
+        # battleStore and the battleFiles there, the lobby state gives its ctx.
+        super(HitsWindow, self).__init__(content=HitsView(battleStore, battleFiles), wndFlags=WindowFlags.WINDOW,
                                          layer=layer)

@@ -19,6 +19,7 @@ from PlayerEvents import g_playerEvents
 from gui.mods.sagtary_armor_hits.config import BATTLES_LIMIT
 from gui.mods.sagtary_armor_hits.data.hits import Hit, vehicleDescr
 from gui.mods.sagtary_armor_hits.data.record import Record
+from gui.mods.sagtary_armor_hits.trace import calls
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -111,6 +112,7 @@ class BattleStore(object):
         self._battles = [item for item in self._battles if item.battleId != battle.battleId]
         self._battles.insert(0, battle)
         del self._battles[self._limit:]
+        calls('store: changed', 'add battle %s, %d listeners' % (battle.battleId, len(self.onChanged)))
         self.onChanged()
 
     def update(self, battle):
@@ -118,6 +120,7 @@ class BattleStore(object):
         for index, item in enumerate(self._battles):
             if item.battleId == battle.battleId:
                 self._battles[index] = battle
+                calls('store: changed', 'update battle %s, %d listeners' % (battle.battleId, len(self.onChanged)))
                 self.onChanged()
                 return True
         return False
@@ -128,10 +131,12 @@ class BattleStore(object):
         ids = set(battle.battleId for battle in battles)
         merged = list(battles) + [item for item in self._battles if item.battleId not in ids]
         self._battles = sorted(merged, key=lambda battle: battle.startedAt, reverse=True)[:self._limit]
+        calls('store: changed', 'add %d battles, %d listeners' % (len(battles), len(self.onChanged)))
         self.onChanged()
 
     def clear(self):
         self._battles = []
+        calls('store: changed', 'clear, %d listeners' % len(self.onChanged))
         self.onChanged()
 
 

@@ -1,17 +1,21 @@
 # -*- coding: utf-8 -*-
-"""Battles saved to a JSON file and read back, to test the hits screen without playing a battle first.
+"""Battles saved to JSON files and read back: a player sends a battle's file with a report, and the hits screen shows
+the battle on another client.
 
-The file:
+BattleFiles keeps one file per battle in its folder, named by the battle id (FILE_NAME), so a battle saved again
+writes over its own file. Loading reads every file of the folder that has the name pattern (FILE_PATTERN): the files
+other players sent, put into the folder. A file:
     {
       "formatVersion": 1,         # version of this layout; a file of a newer layout is not read
       "appVersion": "0.1.0",      # version of the mod that wrote the file
       "exportTime": 1760781180.0, # when it was written, Unix time
-      "battles": [{...}, ...]     # Battle fields, newest first
+      "battles": [{...}, ...]     # Battle fields, newest first; one battle in a file of BattleFiles
     }
 A battle is read with the fields Battle knows: a field the file does not have gets its default, a field Battle does
 not know is skipped. So a file written by an older or a newer version of the mod is read as long as the layout is the
 same.
 """
+import glob
 import io
 import json
 import logging
@@ -24,6 +28,9 @@ from gui.mods.sagtary_armor_hits.data.battles import Battle
 _logger = logging.getLogger('sagtary.armor_hits')
 
 FORMAT_VERSION = 1
+# The file of a battle by its id, and the names of the files loaded.
+FILE_NAME = 'hits_%s.json'
+FILE_PATTERN = 'hits_*.json'
 
 
 class BattleFileError(Exception):
@@ -45,54 +52,79 @@ def _battleData(battle):
     return _text(battle.toDict())
 
 
-class BattleFile(object):
+def writeBattles(path, battles, appVersion):
+    data = OrderedDict((
+        ('formatVersion', FORMAT_VERSION),
+        ('appVersion', appVersion),
+        ('exportTime', time.time()),
+        ('battles', [_battleData(battle) for battle in battles]),
+    ))
+    try:
+        folder = os.path.dirname(path)
+        if folder and not os.path.isdir(folder):
+            os.makedirs(folder)
+        # separators: Python 2 puts a space at the line ends after the commas by default.
+        content = json.dumps(data, indent=2, separators=(',', ': '), ensure_ascii=False)
+        if isinstance(content, str):
+            # Only ASCII texts: json gives a byte string.
+            content = content.decode('ascii')
+        with io.open(path, 'w', encoding='utf-8', newline='\n') as f:
+            f.write(content)
+    except (IOError, OSError, TypeError, ValueError) as error:
+        raise BattleFileError('cannot write %s: %s' % (path, error))
+    _logger.info('battle file: %d battles written to %s', len(battles), path)
 
-    def __init__(self, path, appVersion):
-        self._path = path
+
+def readBattles(path):
+    # The battles of the file, newest first.
+    if not os.path.isfile(path):
+        raise BattleFileError('no file %s' % path)
+    try:
+        with io.open(path, encoding='utf-8') as f:
+            data = json.load(f)
+    except (IOError, OSError, ValueError) as error:
+        raise BattleFileError('cannot read %s: %s' % (path, error))
+    if not isinstance(data, dict) or not isinstance(data.get('battles'), list):
+        raise BattleFileError('%s is not a battles file' % path)
+    formatVersion = data.get('formatVersion')
+    if not isinstance(formatVersion, int) or formatVersion > FORMAT_VERSION:
+        raise BattleFileError('%s has format version %r, this mod reads up to %d' % (
+            path, formatVersion, FORMAT_VERSION))
+    battles = [Battle.fromDict(item) for item in data['battles'] if isinstance(item, dict)]
+    _logger.info('battle file: %d battles read from %s (app version %s)', len(battles), path, data.get('appVersion'))
+    return battles
+
+
+class BattleFiles(object):
+
+    def __init__(self, folder, appVersion):
+        self._folder = folder
         self._appVersion = appVersion
 
     @property
-    def path(self):
-        return self._path
+    def folder(self):
+        return self._folder
 
-    def save(self, battles):
-        data = OrderedDict((
-            ('formatVersion', FORMAT_VERSION),
-            ('appVersion', self._appVersion),
-            ('exportTime', time.time()),
-            ('battles', [_battleData(battle) for battle in battles]),
-        ))
-        try:
-            folder = os.path.dirname(self._path)
-            if folder and not os.path.isdir(folder):
-                os.makedirs(folder)
-            # separators: Python 2 puts a space at the line ends after the commas by default.
-            content = json.dumps(data, indent=2, separators=(',', ': '), ensure_ascii=False)
-            if isinstance(content, str):
-                # Only ASCII texts: json gives a byte string.
-                content = content.decode('ascii')
-            with io.open(self._path, 'w', encoding='utf-8', newline='\n') as f:
-                f.write(content)
-        except (IOError, OSError, TypeError, ValueError) as error:
-            raise BattleFileError('cannot write %s: %s' % (self._path, error))
-        _logger.info('battle file: %d battles written to %s', len(battles), self._path)
+    def pathOf(self, battle):
+        return os.path.join(self._folder, FILE_NAME % battle.battleId)
 
-    def load(self):
-        # The battles of the file, newest first.
-        if not os.path.isfile(self._path):
-            raise BattleFileError('no file %s' % self._path)
-        try:
-            with io.open(self._path, encoding='utf-8') as f:
-                data = json.load(f)
-        except (IOError, OSError, ValueError) as error:
-            raise BattleFileError('cannot read %s: %s' % (self._path, error))
-        if not isinstance(data, dict) or not isinstance(data.get('battles'), list):
-            raise BattleFileError('%s is not a battles file' % self._path)
-        formatVersion = data.get('formatVersion')
-        if not isinstance(formatVersion, int) or formatVersion > FORMAT_VERSION:
-            raise BattleFileError('%s has format version %r, this mod reads up to %d' % (
-                self._path, formatVersion, FORMAT_VERSION))
-        battles = [Battle.fromDict(item) for item in data['battles'] if isinstance(item, dict)]
-        _logger.info('battle file: %d battles read from %s (app version %s)', len(battles), self._path,
-                     data.get('appVersion'))
-        return battles
+    def save(self, battle):
+        # Writes the battle to its file, over the one saved before; the file's path.
+        path = self.pathOf(battle)
+        writeBattles(path, [battle], self._appVersion)
+        return path
+
+    def loadAll(self):
+        # ([battle] of all the folder's files, [(path, error)] of the files not read); an error without any file.
+        paths = sorted(glob.glob(os.path.join(self._folder, FILE_PATTERN)))
+        if not paths:
+            raise BattleFileError('no files %s in %s' % (FILE_PATTERN, os.path.abspath(self._folder)))
+        battles, errors = [], []
+        for path in paths:
+            try:
+                battles.extend(readBattles(path))
+            except BattleFileError as error:
+                errors.append((path, error))
+        _logger.info('battle file: %d battles read from %d of %d files in %s', len(battles),
+                     len(paths) - len(errors), len(paths), self._folder)
+        return battles, errors

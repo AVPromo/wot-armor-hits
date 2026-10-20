@@ -20,6 +20,7 @@ from skeletons.gui.shared.utils import IHangarSpace
 from gui.mods.sagtary_armor_hits.data.client_names import shownVehicleDescr, shownVehicleId
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import DEALT
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import sceneState
+from gui.mods.sagtary_armor_hits.trace import calls
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -86,6 +87,7 @@ class HangarVehiclePresenter(object):
 
     def _update(self):
         vehicle = hitsVehicle(*self._hitsPanel.selection)
+        calls('hangar vehicle: update', _vehicleText(vehicle))
         if vehicle == self._vehicle:
             _logger.info('scene: hangar vehicle stays (wanted %s)', _vehicleText(vehicle))
             return

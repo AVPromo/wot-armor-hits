@@ -4,8 +4,10 @@ the shooter view.
 
 HitLinesPresenter draws on the vehicle the hangar shows (hangar_vehicle.py) the way of the hit the hits panel has
 chosen and, when the scene panel asks for all lines, the ways of the other hits the panel shows. The chosen hit's way
-is dashed in the colors of _DASH_COLOURS; the others are like it, but all white. The pieces are tubes drawn with the
-client's debug drawer (scene_lines.py): over the client's armor overlay, hidden behind the vehicle.
+A way is in the color of the hit's result (_RESULT_COLOURS: red for damage, orange for a critical hit without damage,
+grey for a blocked hit), on both sides: the chosen hit's dashed in that color and black, from the color, the others
+solid. The pieces are tubes drawn with the client's debug drawer (scene_lines.py): over the client's armor overlay,
+hidden behind the vehicle.
 
 With the shooter view on, the hangar camera looks along the chosen hit's shell at its first point
 (HangarCameraSystem.moveCamera); turned off, the camera goes back to its place (resetCameraTarget).
@@ -32,6 +34,7 @@ import logging
 
 import BigWorld
 import CGF
+from Event import Event
 import Math
 from cgf_components.hangar_camera_manager import HangarCameraSystem
 from constants import SHELL_TYPES, VEHICLE_HIT_EFFECT
@@ -39,15 +42,21 @@ from helpers import dependency
 from skeletons.gui.shared.utils import IHangarSpace
 from vehicle_systems.tankStructure import TankPartIndexes, TankPartNames
 
+from gui.mods.sagtary_armor_hits.data.hits import HitResult
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import hitsVehicle
 from gui.mods.sagtary_armor_hits.views.hits.scene_lines import SceneLines
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import sceneState
+from gui.mods.sagtary_armor_hits.trace import calls, effectsText, modulesText
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
-# The colors (ARGB) of the chosen hit's dashes in turn, and the color of the other hits.
-_DASH_COLOURS = (0xFFFFFFFF, 0xFFFF3020)
-_OTHER_COLOURS = (0xFFFFFFFF,)
+# The colors (ARGB) of a way's dashes: the color of the hit's result, then black, in turn.
+_DASH_BLACK = 0xFF101010
+_RESULT_COLOURS = {
+    HitResult.DAMAGE: 0xFFFF3020,
+    HitResult.CRITICAL: 0xFFFF9A1F,
+    HitResult.BLOCKED: 0xFF9A9A9A,
+}
 # Metres: the way drawn before the first point and after a ricochet.
 _LEAD = 2.5
 _RICOCHET = 1.5
@@ -130,6 +139,30 @@ def _hitWay(hit, compoundModel, collisions):
     return pieces, (points[0][2], points[0][3]), waitsNormal
 
 
+def _checkPoints(hit, collisions):
+    # The log of where the hangar vehicle's armor is on the way of each of the hit's points: a point without armor on
+    # its way is on other modules or another vehicle than the hangar's.
+    for index, point in enumerate(hit.points):
+        start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
+        text = 'no collision model'
+        if collisions is not None:
+            try:
+                found = collisions.collideLocal(point.part, start, end)
+            except Exception:
+                found = None
+            if found is None or found[0] < 0.0:
+                text = 'NO ARMOR on the way (other modules or another vehicle?)'
+            else:
+                text = 'armor at %.3f m of the %.3f m way' % (found[0], (end - start).length)
+        _logger.info('check: hit lines: point %d, part %s, %s: %s', index, point.part,
+                     effectsText((point.effect,)), text)
+
+
+def _colours(hit):
+    # The colors of the chosen hit's dashes in turn: the result's color first, then black.
+    return _RESULT_COLOURS.get(hit.result, _RESULT_COLOURS[HitResult.BLOCKED]), _DASH_BLACK
+
+
 class HitLinesPresenter(object):
     __hangarSpace = dependency.descriptor(IHangarSpace)
 
@@ -145,6 +178,9 @@ class HitLinesPresenter(object):
         self._normalTries = 0
         # The camera was moved for the shooter view.
         self._cameraMoved = False
+        # (first point, shell direction) of the chosen hit as last drawn, None without it; told by onDrawn.
+        self.chosenShot = None
+        self.onDrawn = Event()
 
     def init(self):
         self.__hangarSpace.onVehicleChangeStarted += self._onVehicleChangeStarted
@@ -159,6 +195,7 @@ class HitLinesPresenter(object):
         self.__hangarSpace.onVehicleChanged -= self._onVehicleChanged
         self.__hangarSpace.onVehicleChangeStarted -= self._onVehicleChangeStarted
         self._clear()
+        self.onDrawn.clear()
         self._hitsPanel = None
         self._scenePanel = None
 
@@ -167,11 +204,12 @@ class HitLinesPresenter(object):
         battle, side, hit = self._hitsPanel.selection
         vehicle = hitsVehicle(battle, side, hit)
         others = ()
-        if self._scenePanel.allLines:
+        if self._scenePanel.showsAllLines:
             selected = self._hitsPanel.selectedNumber
             others = tuple(other for number, other in self._hitsPanel.shownHits if number != selected and other.points)
         chosen = hit if hit is not None and hit.points else None
         target = (vehicle, chosen, others) if isinstance(vehicle, tuple) and (chosen or others) else None
+        calls('hit lines: update')
         _logger.info('scene: hit lines: selection battle %s, side %s, hit at %s with %d points, %d other hits, '
                      'vehicle %s; %s', battle.battleId if battle is not None else None, side,
                      hit.time if hit is not None else None, len(hit.points) if hit is not None else 0, len(others),
@@ -185,15 +223,18 @@ class HitLinesPresenter(object):
             self._draw('hits chosen')
 
     def _onScenePanelChanged(self):
+        calls('hit lines: scene panel changed')
         if not self._scenePanel.shooterView and self._cameraMoved:
             self._resetCamera()
         self._target = None
         self._update()
 
     def _onVehicleChangeStarted(self, *args):
+        calls('hit lines: vehicle change started')
         self._clear()
 
     def _onVehicleChanged(self, *args):
+        calls('hit lines: vehicle changed', 'target %s' % (self._target is not None))
         if self._target is not None:
             self._clear()
             self._draw('vehicle loaded')
@@ -213,6 +254,7 @@ class HitLinesPresenter(object):
         return compoundModel, getattr(appearance, 'collisions', None)
 
     def _draw(self, reason):
+        calls('hit lines: draw', reason)
         hangarModel = self._hangarModel()
         if hangarModel is None:
             _logger.info('scene: hit lines: %s, not the vehicle of the hits yet: %s', reason, sceneState())
@@ -229,18 +271,25 @@ class HitLinesPresenter(object):
             pieces, _, waits = _hitWay(hit, compoundModel, collisions)
             waitsNormal = waitsNormal or waits
             for start, end in pieces:
-                self._lines.add(start, end, _OTHER_COLOURS)
+                self._lines.add(start, end, _colours(hit)[:1])
         first = None
         if chosen is not None:
             pieces, first, waits = _hitWay(chosen, compoundModel, collisions)
             waitsNormal = waitsNormal or waits
             for start, end in pieces:
-                self._lines.add(start, end, _DASH_COLOURS)
+                self._lines.add(start, end, _colours(chosen))
         if waitsNormal and self._normalTries < _NORMAL_TRIES:
             self._normalTries += 1
             self._callbackID = BigWorld.callback(_NORMAL_RETRY, self._onNormalRetry)
         if first is not None and self._scenePanel.shooterView:
             self._moveCamera(*first)
+        if chosen is not None:
+            entity = self.__hangarSpace.getVehicleEntity()
+            _logger.info('check: hit lines: drawn on %s', modulesText(getattr(entity, 'typeDescriptor', None)))
+            _checkPoints(chosen, collisions)
+        self.chosenShot = first
+        calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
+        self.onDrawn()
         _logger.info('scene: hit lines: %s: %d dashes, %d other hits, chosen hit at %s, direction %s', reason,
                      len(self._lines), len(others), _text(first[0]) if first else None,
                      _text(first[1]) if first else None)
@@ -273,3 +322,8 @@ class HitLinesPresenter(object):
             self._callbackID = None
         self._normalTries = 0
         self._lines.clear()
+        calls('hit lines: clear', 'chosen line %s' % (self.chosenShot is not None))
+        if self.chosenShot is not None:
+            self.chosenShot = None
+            calls('hit lines: onDrawn', 'cleared, %d listeners' % len(self.onDrawn))
+            self.onDrawn()

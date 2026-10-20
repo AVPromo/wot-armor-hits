@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <!-- The hits screen. The page is transparent and covers the whole screen, so the 3D hangar shows through it.
              The lobby draws the page header (the hangar button, the title, the wallet) and the footer over it.
-             For now the panels of the design (the "Armor Hits Core" artifact) are only marked out, without content. -->
+             The panels follow the design of the "Armor Hits Core" artifact. -->
         <title>Armor Hits</title>
         <link rel="stylesheet" href="HitsView.css" />
     </head>
@@ -31,11 +31,6 @@
                         <!-- The battles grouped by day: a day row, then its battles. -->
                         <div class="battleSelector__list battleSelector__items"></div>
                     </div>
-                    <!-- Developer tools: Import and Export of the battles file, shown when they are on (HitsView.js). -->
-                    <div class="devTools">
-                        <div class="devTools__button devTools__import"></div>
-                        <div class="devTools__button devTools__export"></div>
-                    </div>
                     <!-- Hits panel: the hits of the selected battle on the player's vehicle or by the player (HitsView.js). -->
                     <div class="hitsPanel">
                         <div class="hitsPanel__tabs">
@@ -50,9 +45,29 @@
                         </div>
                         <div class="hitsPanel__list"></div>
                     </div>
+                    <!-- File buttons: save the chosen battle to its file (a disk), load the battle files (an arrow
+                         up); a dim icon and label each at the bottom of the column (HitsView.js). -->
+                    <div class="fileButtons">
+                        <div class="fileButtons__button fileButtons__save">
+                            <div class="fileButtons__icon">
+                                <div class="fileButtons__disk"></div>
+                                <div class="fileButtons__diskShutter"></div>
+                                <div class="fileButtons__diskLabel"></div>
+                            </div>
+                            <div class="fileButtons__label fileButtons__saveLabel"></div>
+                        </div>
+                        <div class="fileButtons__button fileButtons__import">
+                            <div class="fileButtons__icon">
+                                <div class="fileButtons__shaft"></div>
+                                <div class="fileButtons__head fileButtons__headUp"></div>
+                                <div class="fileButtons__tray"></div>
+                            </div>
+                            <div class="fileButtons__label fileButtons__importLabel"></div>
+                        </div>
+                    </div>
                 </div>
                 <div class="hitsView__right">
-                    <!-- Overlay panel: the armor overlay type and its scales, like the client's armor page (HitsView.js). -->
+                    <!-- Overlay panel: the armor overlay type, like the client's armor page (HitsView.js). -->
                     <div class="overlayPanel">
                         <div class="overlayPanel__title"></div>
                         <div class="overlayPanel__dropdown">
@@ -62,18 +77,39 @@
                             </div>
                             <div class="overlayPanel__list"></div>
                         </div>
-                        <div class="overlayPanel__scales"></div>
                     </div>
-                    <div class="layout layout__shot">Shooter, vehicle, shell, result, sections</div>
+                    <!-- Shot panel: the chosen hit's shooter and target, its result and its numbers (HitsView.js). -->
+                    <div class="shotPanel">
+                        <div class="shotPanel__vehicles"></div>
+                        <div class="shotPanel__result">
+                            <div class="shotPanel__resultIcon"></div>
+                            <div class="shotPanel__number"></div>
+                        </div>
+                        <div class="shotPanel__sections"></div>
+                    </div>
                 </div>
                 <!-- Scene panel: which hit lines are drawn, the shooter view (HitsView.js). -->
                 <div class="scenePanel">
-                    <div class="scenePanel__label"></div>
+                    <!-- The lines' icon: two shell ways, not a button. -->
+                    <div class="scenePanel__linesIcon">
+                        <div class="scenePanel__linesStroke scenePanel__linesStrokeLong"></div>
+                        <div class="scenePanel__linesStroke scenePanel__linesStrokeShort"></div>
+                    </div>
                     <div class="scenePanel__segments">
                         <div class="scenePanel__segment" data-all="1"></div>
                         <div class="scenePanel__segment" data-all="0"></div>
                     </div>
-                    <div class="scenePanel__shooter"></div>
+                    <div class="scenePanel__divider"></div>
+                    <div class="scenePanel__shooter">
+                        <div class="scenePanel__sight">
+                            <div class="scenePanel__sightRing"></div>
+                            <div class="scenePanel__sightTick scenePanel__sightTop"></div>
+                            <div class="scenePanel__sightTick scenePanel__sightBottom"></div>
+                            <div class="scenePanel__sightTick scenePanel__sightLeft"></div>
+                            <div class="scenePanel__sightTick scenePanel__sightRight"></div>
+                        </div>
+                        <div class="scenePanel__shooterLabel"></div>
+                    </div>
                 </div>
             </div>
         </div>

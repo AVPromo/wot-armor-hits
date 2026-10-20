@@ -21,6 +21,8 @@ from helpers import dependency
 from skeletons.account_helpers.settings_core import ISettingsCore
 from skeletons.gui.shared.utils import IHangarSpace
 
+from gui.mods.sagtary_armor_hits.trace import calls
+
 _logger = logging.getLogger('sagtary.armor_hits')
 
 # Seconds between the looks under the mouse.
@@ -49,6 +51,7 @@ class ArmorTooltipPresenter(object):
         self._overlayPanel = None
 
     def _onCursorOverScene(self, isOver):
+        calls('armor tooltip: cursor over scene', '%s, polling %s' % (isOver, self._callbackID is not None))
         if isOver and self._callbackID is None:
             self._callbackID = BigWorld.callback(0.0, self._onTick)
         elif not isOver:
@@ -65,6 +68,7 @@ class ArmorTooltipPresenter(object):
 
     def _onTick(self):
         self._callbackID = BigWorld.callback(_TICK, self._onTick)
+        calls('armor tooltip: tick', quiet=True)
         try:
             self._update()
         except Exception:
@@ -84,6 +88,7 @@ class ArmorTooltipPresenter(object):
             return
         if self._tooltip is None:
             from gui.impl.lobby.vehicle_hub.sub_presenters.armor.armor_tooltip import ArmorTooltipWindow
+            calls('armor tooltip: create')
             self._tooltip = ArmorTooltipWindow(entity)
             self._tooltip.onStatusChanged += self._onStatusChanged
             self._move()
@@ -111,6 +116,7 @@ class ArmorTooltipPresenter(object):
         tooltip, self._tooltip = self._tooltip, None
         if tooltip is None:
             return
+        calls('armor tooltip: destroy')
         tooltip.onStatusChanged -= self._onStatusChanged
         tooltip.destroy()
         GUI.switchArmorInspectorCursor(False)

@@ -292,30 +292,27 @@ hitsPanel.querySelectorAll(".hitsPanel__tab").forEach((tab) => {
 hitsPanel.querySelector(".hitsPanel__prev").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: -1 }));
 hitsPanel.querySelector(".hitsPanel__next").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: 1 }));
 
-// Developer tools: the Import and Export buttons of the battles file (window.model.devTools), shown only when they
-// are on.
-const devTools = document.querySelector(".devTools");
-const devToolsImport = devTools.querySelector(".devTools__import");
-const devToolsExport = devTools.querySelector(".devTools__export");
+// File buttons: save the chosen battle to its file, load the battle files (window.model.fileButtons); the save is off
+// without a battle.
+const fileButtons = document.querySelector(".fileButtons");
 
-function drawDevTools() {
-    const model = window.model && window.model.devTools;
-    devTools.classList.toggle("devTools__visible", Boolean(model && model.isVisible));
-    if (model) {
-        devToolsImport.textContent = model.importLabel;
-        devToolsExport.textContent = model.exportLabel;
-    }
+function drawFileButtons() {
+    const model = window.model && window.model.fileButtons;
+    fileButtons.classList.toggle("fileButtons__visible", Boolean(model));
+    fileSave.classList.toggle("fileButtons__disabled", !(model && model.canSave));
+    fileButtons.querySelector(".fileButtons__saveLabel").textContent = model ? model.saveLabel : "";
+    fileButtons.querySelector(".fileButtons__importLabel").textContent = model ? model.importLabel : "";
 }
 
-devToolsImport.addEventListener("click", () => window.model.devTools.onImport());
-devToolsExport.addEventListener("click", () => window.model.devTools.onExport());
+const fileSave = fileButtons.querySelector(".fileButtons__save");
+fileSave.addEventListener("click", () => window.model.fileButtons.onSave());
+fileButtons.querySelector(".fileButtons__import").addEventListener("click", () => window.model.fileButtons.onImport());
 
-// Overlay panel: the overlay type dropdown (window.model.overlayPanel) and the scales of the chosen type. A click on
+// Overlay panel: the overlay type dropdown (window.model.overlayPanel). A click on
 // the dropdown opens its list, a click on a type chooses it (onSelect), a click elsewhere or Escape closes the list.
 const overlayPanel = document.querySelector(".overlayPanel");
 const overlayDropdown = overlayPanel.querySelector(".overlayPanel__dropdown");
 const overlayList = overlayPanel.querySelector(".overlayPanel__list");
-const overlayScales = overlayPanel.querySelector(".overlayPanel__scales");
 
 function setOverlayOpen(open) {
     overlayDropdown.classList.toggle("overlayPanel__open", open);
@@ -345,21 +342,6 @@ function drawOverlayPanel() {
         });
         overlayList.appendChild(row);
     });
-    overlayScales.innerHTML = "";
-    arrayItems(model.scales).forEach((scale) => {
-        const node = element("div", "overlayPanel__scale");
-        const title = element("div", "overlayPanel__scaleTitle", scale.title);
-        title.appendChild(element("span", "overlayPanel__scaleUnits", scale.units));
-        node.appendChild(title);
-        const bar = element("div", "overlayPanel__scaleBar");
-        setImage(bar, scale.image);
-        node.appendChild(bar);
-        const values = element("div", "overlayPanel__scaleValues");
-        values.appendChild(element("span", "", scale.minValue));
-        values.appendChild(element("span", "", scale.maxValue));
-        node.appendChild(values);
-        overlayScales.appendChild(node);
-    });
 }
 
 overlayPanel.querySelector(".overlayPanel__trigger").addEventListener("click", (event) => {
@@ -384,14 +366,15 @@ function drawScenePanel() {
     if (!model) {
         return;
     }
-    scenePanel.querySelector(".scenePanel__label").textContent = model.linesLabel;
     for (let index = 0; index < sceneSegments.length; index++) {
         const segment = sceneSegments[index];
         const all = segment.getAttribute("data-all") === "1";
         segment.textContent = all ? model.allLabel : model.currentLabel;
         segment.classList.toggle("scenePanel__segmentSelected", all === Boolean(model.allLines));
     }
-    sceneShooter.textContent = model.shooterLabel;
+    sceneShooter.querySelector(".scenePanel__shooterLabel").textContent = model.shooterLabel;
+    // On the dealt side only the chosen hit's line is drawn: no choice of lines to show.
+    scenePanel.classList.toggle("scenePanel__oneLine", !model.allLinesEnabled);
     sceneShooter.classList.toggle("scenePanel__shooterOn", Boolean(model.shooterView));
 }
 
@@ -401,19 +384,97 @@ for (let index = 0; index < sceneSegments.length; index++) {
 }
 sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
 
+// Shot panel: the chosen hit's shooter and target cards, its result, its sections (window.model.shotPanel). A value
+// counted in the garage is underlined with dashes.
+const shotPanel = document.querySelector(".shotPanel");
+const shotVehicles = shotPanel.querySelector(".shotPanel__vehicles");
+const shotSections = shotPanel.querySelector(".shotPanel__sections");
+
+function shotVehicle(vehicle) {
+    const node = element("div", "shotPanel__vehicle");
+    const who = element("div", "shotPanel__who");
+    who.appendChild(element("div", "shotPanel__role", vehicle.role));
+    who.appendChild(element("div", "shotPanel__player", vehicle.player));
+    node.appendChild(who);
+    const body = element("div", "shotPanel__body");
+    const card = element("div", "shotPanel__card");
+    const flag = element("div", "shotPanel__flag");
+    setImage(flag, vehicle.flag);
+    card.appendChild(flag);
+    const icon = element("div", "shotPanel__vehicleIcon");
+    setImage(icon, vehicle.icon);
+    card.appendChild(icon);
+    const caption = element("div", "shotPanel__caption");
+    caption.appendChild(element("div", "", vehicle.tier));
+    caption.appendChild(element("div", "shotPanel__vehicleName", vehicle.vehicleName));
+    card.appendChild(caption);
+    body.appendChild(card);
+    const modules = element("div", "shotPanel__modules");
+    arrayItems(vehicle.modules).forEach((module) => {
+        const row = element("div", "shotPanel__module");
+        const moduleIcon = element("div", "shotPanel__moduleIcon");
+        setImage(moduleIcon, module.icon);
+        if (module.tier) {
+            moduleIcon.appendChild(element("div", "shotPanel__moduleTier", module.tier));
+        }
+        row.appendChild(moduleIcon);
+        row.appendChild(element("div", "shotPanel__moduleLabel", module.label));
+        modules.appendChild(row);
+    });
+    body.appendChild(modules);
+    node.appendChild(body);
+    return node;
+}
+
+function drawShotPanel() {
+    const model = window.model && window.model.shotPanel;
+    shotPanel.classList.toggle("shotPanel__visible", Boolean(model && model.isVisible));
+    if (!model || !model.isVisible) {
+        return;
+    }
+    shotVehicles.innerHTML = "";
+    shotVehicles.appendChild(shotVehicle(model.shooter));
+    shotVehicles.appendChild(shotVehicle(model.target));
+    shotPanel.querySelector(".shotPanel__resultIcon").className = `shotPanel__resultIcon hitIcon hitIcon__${model.resultIcon}`;
+    shotPanel.querySelector(".shotPanel__number").textContent = model.number;
+    shotSections.innerHTML = "";
+    arrayItems(model.sections).forEach((section) => {
+        const head = element("div", `shotPanel__head shotPanel__head__${section.kind}`);
+        const value = element("div", "shotPanel__value");
+        value.appendChild(element("span", section.counted ? "shotPanel__counted" : "", section.value));
+        head.appendChild(value);
+        const title = element("div", "shotPanel__title", section.title);
+        if (section.units) {
+            title.appendChild(element("span", "shotPanel__units", section.units));
+        }
+        head.appendChild(title);
+        shotSections.appendChild(head);
+        arrayItems(section.rows).forEach((item) => {
+            const row = element("div", "shotPanel__row");
+            const rowValue = element("div", "shotPanel__rowValue");
+            rowValue.appendChild(element("span", item.counted ? "shotPanel__counted" : "", item.value));
+            row.appendChild(rowValue);
+            row.appendChild(element("div", "shotPanel__rowLabel", item.label));
+            shotSections.appendChild(row);
+        });
+    });
+}
+
 function draw() {
     drawBattleSelector();
     drawHitsPanel();
-    drawDevTools();
+    drawFileButtons();
     drawOverlayPanel();
     drawScenePanel();
+    drawShotPanel();
 }
 
 // The page draws again on a change of the model or of any of its parts: a change inside a part (its arrays, its
 // selection) is told to the observers of that part's path.
 engine.whenReady.then(() => {
-    const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.devTools", "model.overlayPanel",
-        "model.scenePanel"];
+    const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.fileButtons", "model.overlayPanel",
+        "model.scenePanel", "model.shotPanel",
+        "model.shotPanel.shooter", "model.shotPanel.target"];
     const callbackIDs = paths.map((path) =>
         viewEnv.addDataChangedCallback(path, 0, true),
     );

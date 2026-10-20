@@ -15,11 +15,9 @@ RECORDS_DIR = 'mods/sagtary_armor_hits/battles'
 # Battles of the session kept for the hits screen (in memory), newest first.
 BATTLES_LIMIT = 50
 
-# Developer tools on the hits screen: the Import and Export buttons, which read and write the battles of the screen
-# to BATTLES_FILE, to test the screen without playing a battle first. Off in a release.
-DEV_TOOLS = True
-# Battles file of the developer tools, relative to the game folder.
-BATTLES_FILE = 'mods/sagtary_armor_hits/battles.json'
+# Folder of the battle files of the hits screen's save and load buttons (one file per battle, a player sends it with a
+# report; the files put there are loaded), relative to the game folder.
+BATTLE_FILES_DIR = 'mods/sagtary_armor_hits/hits'
 
 # Id of the entry in the mods list (ModsList API, optional).
 LOBBY_BUTTON_ID = 'sagtary_armor_hits'
@@ -40,9 +38,30 @@ TEXTS = {
         'battles/empty': u'No battles yet',
         'hits/received': u'On me',
         'hits/dealt': u'By me',
-        'lines/title': u'Lines',
         'lines/current': u'Current',
         'camera/shooter': u'Shooter view',
+        'file/save': u'Save battle',
+        'file/import': u'Import',
+        'file/imported': u'Armor Hits: %(count)s battles loaded from %(path)s',
+        'file/exported': u'Armor Hits: battle saved to %(path)s',
+        'file/failed': u'Armor Hits: %(error)s',
+        'shot/shooter': u'Shooter',
+        'shot/target': u'Target',
+        'shot/damage': u'Damage',
+        'shot/penetration': u'Penetration',
+        'shot/armor': u'Armor',
+        'shot/angle': u'Impact angle',
+        'shot/distance': u'Distance',
+        'shot/crits': u'Modules and crew',
+        'shot/hp': u'(HP)',
+        'shot/mm': u'(mm)',
+        'shot/m': u'(m)',
+        'shot/avgDamage': u'average shell damage',
+        'shot/avgPenetration': u'average shell penetration',
+        'shot/chance': u'penetration chance',
+        'shot/nominal': u'nominal',
+        'shot/spaced': u'spaced armor before it',
+        'shot/ricochet': u'ricochet',
     },
     'ru': {
         'lobbyButton/name': u'Armor Hits',
@@ -50,8 +69,29 @@ TEXTS = {
         'battles/empty': u'Боёв пока нет',
         'hits/received': u'По мне',
         'hits/dealt': u'По врагам',
-        'lines/title': u'Линии',
         'lines/current': u'Текущая',
         'camera/shooter': u'Вид стрелка',
+        'file/save': u'Сохранить бой',
+        'file/import': u'Импорт',
+        'file/imported': u'Armor Hits: загружено боёв: %(count)s, папка %(path)s',
+        'file/exported': u'Armor Hits: бой сохранён в %(path)s',
+        'file/failed': u'Armor Hits: %(error)s',
+        'shot/shooter': u'Стрелок',
+        'shot/target': u'Цель',
+        'shot/damage': u'Урон',
+        'shot/penetration': u'Пробитие',
+        'shot/armor': u'Броня',
+        'shot/angle': u'Угол попадания',
+        'shot/distance': u'Дистанция',
+        'shot/crits': u'Модули и экипаж',
+        'shot/hp': u'(ОП)',
+        'shot/mm': u'(мм)',
+        'shot/m': u'(м)',
+        'shot/avgDamage': u'средний урон снаряда',
+        'shot/avgPenetration': u'среднее пробитие снаряда',
+        'shot/chance': u'шанс пробития',
+        'shot/nominal': u'номинальная',
+        'shot/spaced': u'экраны перед ней',
+        'shot/ricochet': u'рикошет',
     },
 }

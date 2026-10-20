@@ -4,6 +4,9 @@
 - Hit: one hit, read from the client when the server tells about it (Vehicle.showDamageFromShot for a shell that hit,
   Vehicle.showDamageFromExplosion for a high explosive splash). It keeps what the server sent; its result is worked
   out from that, like in the client's damage log: damage, a critical hit without damage, or blocked.
+- DamagedDevice: a module or a crew member of the player's vehicle a shell damaged, by the client's own names (its
+  damage info code, the vehicle's extra and the device kind), so it can be shown in any way later. The client's
+  numbers for them are not kept: the extra's index depends on the vehicle type, the code's on the client version.
 - HitPoint: one point a shell hit (a shell that ricochets or goes through spaced armor hits more than one): the
   vehicle part and the shell's way through its armor, as the server sends it (DamageFromShotDecoder.parseHitPoint).
   The points are in the part's own space, so they are drawn on the same vehicle with the same modules, whatever the
@@ -12,20 +15,25 @@
   player's vehicle was hit) and dealtHits (the player's vehicle hit another one). The client knows the hits on the
   vehicles it sees, so all the player's hits are there, and the hits on the player's vehicle. The client's battle
   events (PlayerAvatar.onBattleEvents, the source of its damage log) add the crits, a premium shell and the blocked
-  damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after.
+  damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after; the client's damage info
+  of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) adds the modules and crew the shell damaged, the same
+  way. The client tells which modules it damaged only on the player's own vehicle. The distance is between the two
+  vehicles when the hit comes, when the client sees the shooter.
 """
 import logging
 
 import BigWorld
 from Avatar import PlayerAvatar
 from BattleFeedbackCommon import BATTLE_EVENT_TYPE
-from constants import ARENA_PERIOD, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_EFFECT
+from constants import ARENA_PERIOD, DAMAGE_INFO_CODES, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_EFFECT
+from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
 from PlayerEvents import g_playerEvents
 from Vehicle import Vehicle
 from VehicleEffects import DamageFromShotDecoder
 from vehicle_systems.tankStructure import TankPartIndexes
 
 from gui.mods.sagtary_armor_hits.data.record import Record
+from gui.mods.sagtary_armor_hits.trace import calls, hitText
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -55,6 +63,18 @@ class HitPoint(Record):
     __slots__ = tuple(name for name, _ in FIELDS)
 
 
+class DamagedDevice(Record):
+    FIELDS = (
+        ('code', ''),           # constants.DAMAGE_INFO_CODES name: DEVICE_CRITICAL_AT_SHOT, DEVICE_DESTROYED_AT_SHOT,
+                                # TANKMAN_HIT_AT_SHOT, DEVICE_STARTED_FIRE_AT_SHOT, DEATH_FROM_SHOT, ...
+        ('extra', ''),          # the vehicle's extra (its slot) the code is about: engineHealth, leftTrack0Health,
+                                # gunner2Health, ...; '' for none
+        ('device', ''),         # the extra's kind, an items.vehicles VEHICLE_DEVICE_TYPE_NAMES or VEHICLE_TANKMAN_TYPE_NAMES
+                                # name: engine, track, gunner, ...; '' when it is not one
+    )
+    __slots__ = tuple(name for name, _ in FIELDS)
+
+
 class Hit(Record):
     FIELDS = (
         ('time', 0.0),          # seconds since the battle started (the arena's battle period)
@@ -69,8 +89,10 @@ class Hit(Record):
         ('critsCount', 0),      # modules and crew the hit damaged, as the client's damage log counts them
         ('isGoldShell', False), # a premium shell
         ('points', ()),         # the points the shell hit, in order (HitPoint); none for a splash
+        ('distance', 0.0),      # metres between the shooter and the target at the hit; 0 when not known
+        ('damagedDevices', ()), # what the shell did to the player's vehicle (received hits), in order (DamagedDevice)
     )
-    NESTED = {'points': HitPoint}
+    NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice}
     __slots__ = tuple(name for name, _ in FIELDS)
 
     @property
@@ -119,9 +141,30 @@ _EVENT_SIDES = {
     BATTLE_EVENT_TYPE.TANKING: 'receivedHits',
 }
 _CRIT_EVENTS = (BATTLE_EVENT_TYPE.CRIT, BATTLE_EVENT_TYPE.RECEIVED_CRIT)
+# The client's damage info codes of a shell have this in their names (DEVICE_CRITICAL_AT_SHOT, DEATH_FROM_SHOT, ...).
+_SHOT_CODE = 'SHOT'
+# {vehicle extra name: device or crew kind}
+_EXTRA_DEVICES = dict((extra, device) for device, extras in DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES.items()
+                      for extra in extras)
 # The server tells the event and the client shows the shell hit at about the same time, either one first (the hit
 # waits for the shell's flight): an event and a hit of the same vehicle within this many seconds are one hit.
 _PAIRING_TIME = 1.5
+
+
+def _withInfo(hit, info):
+    # The hit with the info of an event: the damaged devices are added to those it has, the others replaced.
+    devices = info.get('damagedDevices')
+    if devices:
+        info = dict(info, damagedDevices=hit.damagedDevices + devices)
+    return hit.replace(**info)
+
+
+def _distance(vehicleID, otherID):
+    # Metres between two vehicles the client sees, 0 when it does not see one of them.
+    vehicle, other = BigWorld.entities.get(vehicleID), BigWorld.entities.get(otherID)
+    if vehicle is None or other is None:
+        return 0.0
+    return round((vehicle.position - other.position).length, 1)
 
 
 def _eventInfo(eventType, details):
@@ -151,6 +194,7 @@ class HitCollector(object):
         for name in ('showDamageFromShot', 'showDamageFromExplosion'):
             self._wrap(Vehicle, name, self._onVehicleHit)
         self._wrap(PlayerAvatar, 'onBattleEvents', self._onBattleEvents)
+        self._wrap(PlayerAvatar, 'showVehicleDamageInfo', self._onDamageInfo)
         g_playerEvents.onAvatarBecomeNonPlayer += self._reset
 
     def uninstall(self):
@@ -172,6 +216,7 @@ class HitCollector(object):
 
         def wrapper(entity, *args, **kwargs):
             try:
+                calls('hits: %s' % name, quiet=True)
                 handler(name, entity, args, kwargs)
             except Exception:
                 _logger.exception('hits: cannot read %s.%s', cls.__name__, name)
@@ -203,13 +248,14 @@ class HitCollector(object):
         descriptor = arenaVehicle.get('vehicleType')
         hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',
                           vehicleId=descriptor.type.compactDescr if descriptor is not None else 0,
-                          vehicleDescr=vehicleDescr(descriptor))
+                          vehicleDescr=vehicleDescr(descriptor), distance=_distance(vehicle.id, attackerID))
         key, now = (field, otherID), BigWorld.serverTime()
         for eventTime, info in self._pendingEvents.pop(key, ()):
             if now - eventTime <= _PAIRING_TIME:
-                hit = hit.replace(**info)
+                hit = _withInfo(hit, info)
         hits = getattr(battle, field) + (hit,)
         self._lastHits[key] = (now, battle.battleId, len(hits) - 1)
+        _logger.info('hits: %s #%d of vehicle %s: %s', field, len(hits), otherID, hitText(hit))
         self._store.update(battle.replace(**{field: hits}))
 
     @staticmethod
@@ -232,20 +278,40 @@ class HitCollector(object):
                    points=tuple(points))
 
     def _onBattleEvents(self, name, avatar, args, kwargs):
-        now = BigWorld.serverTime()
         for event in _argument(args, kwargs, 0, 'events') or ():
             field = _EVENT_SIDES.get(event['eventType'])
-            if field is None:
-                continue
-            key, info = (field, event['targetID']), _eventInfo(event['eventType'], event['details'])
-            last = self._lastHits.get(key)
-            battle = self._store.getBattle(last[1]) if last is not None and now - last[0] <= _PAIRING_TIME else None
-            if battle is None:
-                self._pendingEvents.setdefault(key, []).append((now, info))
-                continue
-            hits, index = getattr(battle, field), last[2]
-            hits = hits[:index] + (hits[index].replace(**info),) + hits[index + 1:]
-            self._store.update(battle.replace(**{field: hits}))
+            if field is not None:
+                self._addInfo((field, event['targetID']), _eventInfo(event['eventType'], event['details']))
+
+    def _onDamageInfo(self, name, avatar, args, kwargs):
+        # What a shell of the attacker (entityID) did to the player's vehicle: a module or a crew member damaged, a
+        # fire, the vehicle destroyed. The extra index 0 is none.
+        vehicleID, damageIndex = _argument(args, kwargs, 0, 'vehicleID'), _argument(args, kwargs, 1, 'damageIndex')
+        extraIndex, attackerID = _argument(args, kwargs, 2, 'extraIndex'), _argument(args, kwargs, 3, 'entityID')
+        if vehicleID != getattr(avatar, 'playerVehicleID', None):
+            return
+        code = DAMAGE_INFO_CODES[damageIndex]
+        _logger.info('hits: damage info %s, extra %s, attacker %s', code, extraIndex, attackerID)
+        if _SHOT_CODE not in code:
+            return
+        extra = avatar.vehicleTypeDescriptor.extras[extraIndex].name if extraIndex else ''
+        device = DamagedDevice(code=code, extra=extra, device=_EXTRA_DEVICES.get(extra, ''))
+        self._addInfo(('receivedHits', attackerID), {'damagedDevices': (device,)})
+
+    def _addInfo(self, key, info):
+        # Adds the info to the last hit of the key within _PAIRING_TIME, or keeps it for the hit to come.
+        now = BigWorld.serverTime()
+        last = self._lastHits.get(key)
+        battle = self._store.getBattle(last[1]) if last is not None and now - last[0] <= _PAIRING_TIME else None
+        if battle is None:
+            _logger.info('hits: %s of vehicle %s waits for its hit: %s', key[0], key[1], info)
+            self._pendingEvents.setdefault(key, []).append((now, info))
+            return
+        field = key[0]
+        hits, index = getattr(battle, field), last[2]
+        _logger.info('hits: %s #%d of vehicle %s gets %s', field, index + 1, key[1], info)
+        hits = hits[:index] + (_withInfo(hits[index], info),) + hits[index + 1:]
+        self._store.update(battle.replace(**{field: hits}))
 
 
 def _argument(args, kwargs, index, name):

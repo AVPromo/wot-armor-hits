@@ -6,15 +6,15 @@ Entry point loaded by the game; the code is in the gui.mods.sagtary_armor_hits p
 import logging
 
 from gui.mods.sagtary_armor_hits import settings
-from gui.mods.sagtary_armor_hits.config import BATTLES_FILE, DEV_TOOLS
-from gui.mods.sagtary_armor_hits.data.battle_file import BattleFile
+from gui.mods.sagtary_armor_hits.config import BATTLE_FILES_DIR
+from gui.mods.sagtary_armor_hits.data.battle_file import BattleFiles
 from gui.mods.sagtary_armor_hits.data.battle_recorder import BattleRecorder
 from gui.mods.sagtary_armor_hits.data.battles import BattleCollector, BattleStore
 from gui.mods.sagtary_armor_hits.data.hits import HitCollector
 from gui.mods.sagtary_armor_hits.views.hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.views.lobby_button.lobby_button import LobbyButton
 
-__version__ = '0.87.0'
+__version__ = '0.103.0'
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -29,9 +29,9 @@ _battleRecorder = BattleRecorder()
 _battleStore = BattleStore()
 _battleCollector = BattleCollector(_battleStore)
 _hitCollector = HitCollector(_battleStore)
-# The battles file of the developer tools (Import and Export on the hits screen), only when they are on.
-_battleFile = BattleFile(BATTLES_FILE, __version__) if DEV_TOOLS else None
-_hitsScreen = HitsScreen(_battleStore, _battleFile)
+# The battle files of the hits screen's save and load buttons.
+_battleFiles = BattleFiles(BATTLE_FILES_DIR, __version__)
+_hitsScreen = HitsScreen(_battleStore, _battleFiles)
 _button = LobbyButton(_openViewer)
 
 
