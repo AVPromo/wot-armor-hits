@@ -3,7 +3,7 @@
 
 - Hit: one hit, read from the client when the server tells about it (Vehicle.showDamageFromShot for a shell that hit,
   Vehicle.showDamageFromExplosion for a high explosive splash). It keeps what the server sent; its result is worked
-  out from that, like in the client's damage log: damage, a critical hit without damage, or blocked.
+  out from that, like the client's armor tooltip tells a shot: damage, not pierced, a ricochet, or no damage.
 - DamagedDevice: a module or a crew member of the player's vehicle a shell damaged, by the client's own names (its
   damage info code, the vehicle's extra and the device kind), so it can be shown in any way later. The client's
   numbers for them are not kept: the extra's index depends on the vehicle type, the code's on the client version.
@@ -24,7 +24,7 @@ import logging
 
 import BigWorld
 from Avatar import PlayerAvatar
-from BattleFeedbackCommon import BATTLE_EVENT_TYPE
+from BattleFeedbackCommon import BATTLE_EVENT_TYPE, NONE_SHELL_TYPE
 from constants import ARENA_PERIOD, DAMAGE_INFO_CODES, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_EFFECT
 from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
 from PlayerEvents import g_playerEvents
@@ -39,14 +39,13 @@ _logger = logging.getLogger('sagtary.armor_hits')
 
 
 class HitResult(object):
-    # The hit's result, like the icons of the client's damage log.
+    # The hit's result: damage, then the results of the client's armor tooltip for a hit without damage (the armor
+    # stopped the shell, the shell ricocheted, the shell pierced the armor but did no damage).
     DAMAGE = 'damage'
-    CRITICAL = 'critical'
     BLOCKED = 'blocked'
-    ALL = (DAMAGE, CRITICAL, BLOCKED)
-
-
-_CRITICAL_EFFECTS = (VEHICLE_HIT_EFFECT.CRITICAL_HIT, VEHICLE_HIT_EFFECT.ARMOR_PIERCED_DEVICE_DAMAGED)
+    RICOCHET = 'ricochet'
+    NO_DAMAGE = 'noDamage'
+    ALL = (DAMAGE, BLOCKED, RICOCHET, NO_DAMAGE)
 
 
 # Decimals of the hit point coordinates in metres: the server sends them to about 1 cm.
@@ -97,10 +96,14 @@ class Hit(Record):
 
     @property
     def result(self):
+        # Without damage, the last point the shell hit tells what stopped it; a splash without damage is blocked.
         if self.damage > 0:
             return HitResult.DAMAGE
-        if any(effect in _CRITICAL_EFFECTS for effect in self.hitEffects):
-            return HitResult.CRITICAL
+        last = self.hitEffects[-1] if self.hitEffects else VEHICLE_HIT_EFFECT.ARMOR_NOT_PIERCED
+        if last in VEHICLE_HIT_EFFECT.RICOCHETS:
+            return HitResult.RICOCHET
+        if last in VEHICLE_HIT_EFFECT.PIERCED_HITS:
+            return HitResult.NO_DAMAGE
         return HitResult.BLOCKED
 
 
@@ -168,15 +171,29 @@ def _distance(vehicleID, otherID):
 
 
 def _eventInfo(eventType, details):
-    # {Hit field: value} of a battle event: crits, a premium shell, the damage the armor blocked.
+    # {Hit field: value} of a battle event: crits, a premium shell, the damage the armor blocked. The events of the
+    # player's own hits do not tell the shell (NONE_SHELL_TYPE): no premium flag from them.
     if eventType in _CRIT_EVENTS:
-        critsCount, _, _, isGold = BATTLE_EVENT_TYPE.unpackCrits(details)[:4]
-        return {'critsCount': critsCount, 'isGoldShell': bool(isGold)}
-    damage, _, _, _, isGold = BATTLE_EVENT_TYPE.unpackDamage(details)[:5]
-    info = {'isGoldShell': bool(isGold)}
-    if eventType == BATTLE_EVENT_TYPE.TANKING:
-        info['blockedDamage'] = damage
+        critsCount, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackCrits(details)[:4]
+        info = {'critsCount': critsCount}
+    else:
+        damage, _, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackDamage(details)[:5]
+        info = {'blockedDamage': damage} if eventType == BATTLE_EVENT_TYPE.TANKING else {}
+    if shellTypeID != NONE_SHELL_TYPE:
+        info['isGoldShell'] = bool(isGold)
     return info
+
+
+def ownShellIsGold(descriptor, shellType, currentShellCD=None):
+    # Whether the player's shell of the kind is a premium one: the gun's only shell of the kind, else its current
+    # shell when of the kind; None when not known.
+    shells = [shot.shell for shot in descriptor.gun.shots if shot.shell.kind == shellType]
+    if len(shells) == 1:
+        return bool(shells[0].isGold)
+    for shell in shells:
+        if shell.compactDescr == currentShellCD:
+            return bool(shell.isGold)
+    return None
 
 
 class HitCollector(object):
@@ -241,6 +258,8 @@ class HitCollector(object):
             return
         if name == 'showDamageFromShot':
             hit = self._shotHit(vehicle, args, kwargs)
+            if field == 'dealtHits':
+                hit = hit.replace(isGoldShell=self._ownShellIsGold(player, hit.shellType))
         else:
             hit = Hit(shellType=SHELL_TYPES.HIGH_EXPLOSIVE, damage=_argument(args, kwargs, 3, 'damage') or 0,
                       isSplash=True)
@@ -257,6 +276,17 @@ class HitCollector(object):
         self._lastHits[key] = (now, battle.battleId, len(hits) - 1)
         _logger.info('hits: %s #%d of vehicle %s: %s', field, len(hits), otherID, hitText(hit))
         self._store.update(battle.replace(**{field: hits}))
+
+    @staticmethod
+    def _ownShellIsGold(player, shellType):
+        # The player's shell of a dealt hit: the server does not tell whether it was a premium one.
+        try:
+            ammo = player.guiSessionProvider.shared.ammo
+            isGold = ownShellIsGold(player.vehicleTypeDescriptor, shellType, ammo.getCurrentShellCD())
+        except Exception:
+            _logger.debug('hits: no shell of the player', exc_info=True)
+            isGold = None
+        return bool(isGold)
 
     @staticmethod
     def _shotHit(vehicle, args, kwargs):

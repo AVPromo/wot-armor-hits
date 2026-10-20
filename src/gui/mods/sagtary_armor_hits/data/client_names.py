@@ -24,7 +24,7 @@ def _shownVehicleType(vehicleId):
     vehicleType = vehicles.getVehicleType(vehicleId)
     if _MAPS_TRAINING_MARK in vehicleType.name:
         try:
-            nationID, typeID = vehicles.g_list.getIDsByName(_copiedName(vehicleType.name))
+            nationID, typeID = vehicles.g_list.getIDsByName(copiedName(vehicleType.name))
             vehicleType = vehicles.g_cache.vehicle(nationID, typeID)
         except Exception:
             _logger.debug('client names: no vehicle copied by %s', vehicleType.name)
@@ -54,7 +54,7 @@ def shownVehicleId(vehicleId):
         return None
 
 
-def _copiedName(name):
+def copiedName(name):
     # The name of the vehicle's or module's original: a maps training copy's module 'PzVI_Porsche_Turm_MapsTraining_
     # Player_HT_2' copies 'PzVI_Porsche_Turm'.
     return name.split(_MAPS_TRAINING_MARK)[0]
@@ -79,16 +79,16 @@ def shownVehicleDescr(vehicleId, descr):
     for module, choices in ((copy.chassis, shownType.chassis), (copy.engine, shownType.engines),
                             (copy.fuelTank, shownType.fuelTanks), (copy.radio, shownType.radios)):
         for choice in choices:
-            if choice.name == _copiedName(module.name):
+            if choice.name == copiedName(module.name):
                 try:
                     shown.installComponent(choice.compactDescr)
                 except Exception:
                     _logger.debug('client names: cannot install %s', choice.name, exc_info=True)
     for turret in shownType.turrets[0]:
-        if turret.name != _copiedName(copy.turret.name):
+        if turret.name != copiedName(copy.turret.name):
             continue
         for gun in turret.guns:
-            if gun.name == _copiedName(copy.gun.name):
+            if gun.name == copiedName(copy.gun.name):
                 try:
                     shown.installTurret(turret.compactDescr, gun.compactDescr)
                 except Exception:

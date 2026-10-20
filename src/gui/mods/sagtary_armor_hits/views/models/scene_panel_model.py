@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """View model of the scene panel of the hits screen, at the bottom: which hit lines are drawn (all the shown hits or
-the chosen one) and the shooter view (the camera looks along the chosen hit's shell).
+the chosen one), the shooter view (the camera looks along the chosen hit's shell) and the camera reset.
 """
 from frameworks.wulf import ViewModel
 
 
 class ScenePanelModel(ViewModel):
-    __slots__ = ('onLines', 'onShooterView')
+    __slots__ = ('onLines', 'onShooterView', 'onResetCamera')
 
-    def __init__(self, properties=6, commands=2):
+    def __init__(self, properties=7, commands=3):
         super(ScenePanelModel, self).__init__(properties=properties, commands=commands)
 
     def getAllLabel(self):
@@ -49,6 +49,12 @@ class ScenePanelModel(ViewModel):
     def setAllLinesEnabled(self, value):
         self._setBool(5, value)
 
+    def getResetLabel(self):
+        return self._getString(6)
+
+    def setResetLabel(self, value):
+        self._setString(6, value)
+
     def _initialize(self):
         super(ScenePanelModel, self)._initialize()
         self._addStringProperty('allLabel', '')
@@ -57,6 +63,8 @@ class ScenePanelModel(ViewModel):
         self._addBoolProperty('allLines', False)
         self._addBoolProperty('shooterView', False)
         self._addBoolProperty('allLinesEnabled', True)
+        self._addStringProperty('resetLabel', '')
         # {all}: all the shown hits' lines or the chosen one's; the shooter view on or off.
         self.onLines = self._addCommand('onLines')
         self.onShooterView = self._addCommand('onShooterView')
+        self.onResetCamera = self._addCommand('onResetCamera')

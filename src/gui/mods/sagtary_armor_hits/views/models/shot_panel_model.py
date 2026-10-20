@@ -6,10 +6,11 @@ from frameworks.wulf import Array, ViewModel
 
 
 class ShotModuleModel(ViewModel):
-    # A module or a shell of a vehicle card: the client's icon, the module's tier ('' for a shell), its name.
+    # A module or a shell of a vehicle card: the client's icon and the module's tier ('' for a shell); its tooltip is
+    # the client's, asked for by the card's role and the module's index.
     __slots__ = ()
 
-    def __init__(self, properties=3, commands=0):
+    def __init__(self, properties=2, commands=0):
         super(ShotModuleModel, self).__init__(properties=properties, commands=commands)
 
     def getIcon(self):
@@ -24,17 +25,10 @@ class ShotModuleModel(ViewModel):
     def setTier(self, value):
         self._setString(1, value)
 
-    def getLabel(self):
-        return self._getString(2)
-
-    def setLabel(self, value):
-        self._setString(2, value)
-
     def _initialize(self):
         super(ShotModuleModel, self)._initialize()
         self._addStringProperty('icon', '')
         self._addStringProperty('tier', '')
-        self._addStringProperty('label', '')
 
 
 class ShotVehicleModel(ViewModel):
@@ -136,10 +130,10 @@ class ShotRowModel(ViewModel):
 
 class ShotSectionModel(ViewModel):
     # A section: its kind (damage, penetration, armor, angle, distance, crits: the page's icon and accent), title,
-    # units, value, whether the value is counted in the garage, and its lines.
+    # value, whether the value is counted in the garage, and its lines.
     __slots__ = ()
 
-    def __init__(self, properties=6, commands=0):
+    def __init__(self, properties=5, commands=0):
         super(ShotSectionModel, self).__init__(properties=properties, commands=commands)
 
     def getKind(self):
@@ -154,29 +148,23 @@ class ShotSectionModel(ViewModel):
     def setTitle(self, value):
         self._setString(1, value)
 
-    def getUnits(self):
+    def getValue(self):
         return self._getString(2)
 
-    def setUnits(self, value):
+    def setValue(self, value):
         self._setString(2, value)
 
-    def getValue(self):
-        return self._getString(3)
-
-    def setValue(self, value):
-        self._setString(3, value)
-
     def getCounted(self):
-        return self._getBool(4)
+        return self._getBool(3)
 
     def setCounted(self, value):
-        self._setBool(4, value)
+        self._setBool(3, value)
 
     def getRows(self):
-        return self._getArray(5)
+        return self._getArray(4)
 
     def setRows(self, value):
-        self._setArray(5, value)
+        self._setArray(4, value)
 
     @staticmethod
     def getRowsType():
@@ -186,7 +174,6 @@ class ShotSectionModel(ViewModel):
         super(ShotSectionModel, self)._initialize()
         self._addStringProperty('kind', '')
         self._addStringProperty('title', '')
-        self._addStringProperty('units', '')
         self._addStringProperty('value', '')
         self._addBoolProperty('counted', False)
         self._addArrayProperty('rows', Array())
@@ -195,7 +182,7 @@ class ShotSectionModel(ViewModel):
 class ShotPanelModel(ViewModel):
     __slots__ = ()
 
-    def __init__(self, properties=6, commands=0):
+    def __init__(self, properties=8, commands=0):
         super(ShotPanelModel, self).__init__(properties=properties, commands=commands)
 
     def getIsVisible(self):
@@ -220,35 +207,50 @@ class ShotPanelModel(ViewModel):
     def getTargetType():
         return ShotVehicleModel
 
-    def getResultIcon(self):
-        # The hit icon class of the hits panel: result and side, 'damage__received'.
-        return self._getString(3)
-
-    def setResultIcon(self, value):
-        self._setString(3, value)
-
-    def getNumber(self):
-        # '#4 · 3:11': the hit's number in the list and its battle time.
-        return self._getString(4)
-
-    def setNumber(self, value):
-        self._setString(4, value)
-
     def getSections(self):
-        return self._getArray(5)
+        return self._getArray(3)
 
     def setSections(self, value):
-        self._setArray(5, value)
+        self._setArray(3, value)
 
     @staticmethod
     def getSectionsType():
         return ShotSectionModel
+
+    def getTooltipContentId(self):
+        # The resource ids of the client's tooltip (backport tooltip content, tooltip window) the page asks for.
+        return self._getNumber(4)
+
+    def setTooltipContentId(self, value):
+        self._setNumber(4, value)
+
+    def getTooltipDecoratorId(self):
+        return self._getNumber(5)
+
+    def setTooltipDecoratorId(self, value):
+        self._setNumber(5, value)
+
+    def getShellText(self):
+        # The shell kind's abbreviation of the client's damage log, on a plate beside the penetration.
+        return self._getString(6)
+
+    def setShellText(self, value):
+        self._setString(6, value)
+
+    def getIsGoldShell(self):
+        # A premium shell: the plate is gold.
+        return self._getBool(7)
+
+    def setIsGoldShell(self, value):
+        self._setBool(7, value)
 
     def _initialize(self):
         super(ShotPanelModel, self)._initialize()
         self._addBoolProperty('isVisible', False)
         self._addViewModelProperty('shooter', ShotVehicleModel())
         self._addViewModelProperty('target', ShotVehicleModel())
-        self._addStringProperty('resultIcon', '')
-        self._addStringProperty('number', '')
         self._addArrayProperty('sections', Array())
+        self._addNumberProperty('tooltipContentId', 0)
+        self._addNumberProperty('tooltipDecoratorId', 0)
+        self._addStringProperty('shellText', '')
+        self._addBoolProperty('isGoldShell', False)

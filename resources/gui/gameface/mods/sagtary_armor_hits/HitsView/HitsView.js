@@ -268,7 +268,7 @@ function drawHitsPanel() {
         // vehicle; the player last.
         // Like the client's log: the damage, or "xN" crits for a hit on modules without damage.
         let damage = hit.damage ? String(hit.damage) : "";
-        if (!hit.damage && hit.result === "critical" && hit.critsCount) {
+        if (!hit.damage && hit.critsCount) {
             damage = `x${hit.critsCount}`;
         }
         row.appendChild(element("div", "hitsPanel__damage", damage));
@@ -360,6 +360,7 @@ document.addEventListener("keydown", (event) => {
 const scenePanel = document.querySelector(".scenePanel");
 const sceneSegments = scenePanel.querySelectorAll(".scenePanel__segment");
 const sceneShooter = scenePanel.querySelector(".scenePanel__shooter");
+const sceneReset = scenePanel.querySelector(".scenePanel__reset");
 
 function drawScenePanel() {
     const model = window.model && window.model.scenePanel;
@@ -373,6 +374,7 @@ function drawScenePanel() {
         segment.classList.toggle("scenePanel__segmentSelected", all === Boolean(model.allLines));
     }
     sceneShooter.querySelector(".scenePanel__shooterLabel").textContent = model.shooterLabel;
+    sceneReset.querySelector(".scenePanel__resetLabel").textContent = model.resetLabel;
     // On the dealt side only the chosen hit's line is drawn: no choice of lines to show.
     scenePanel.classList.toggle("scenePanel__oneLine", !model.allLinesEnabled);
     sceneShooter.classList.toggle("scenePanel__shooterOn", Boolean(model.shooterView));
@@ -383,6 +385,7 @@ for (let index = 0; index < sceneSegments.length; index++) {
     sceneSegments[index].addEventListener("click", () => window.model.scenePanel.onLines({ all }));
 }
 sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
+sceneReset.addEventListener("click", () => window.model.scenePanel.onResetCamera());
 
 // Shot panel: the chosen hit's shooter and target cards, its result, its sections (window.model.shotPanel). A value
 // counted in the garage is underlined with dashes.
@@ -390,7 +393,29 @@ const shotPanel = document.querySelector(".shotPanel");
 const shotVehicles = shotPanel.querySelector(".shotPanel__vehicles");
 const shotSections = shotPanel.querySelector(".shotPanel__sections");
 
-function shotVehicle(vehicle) {
+// The client's tooltip of a card's module (a backport tooltip; HitsView.getTooltipData finds it by the role and the
+// index), shown and hidden like the client's pages do (a view event, as OpenWG Gameface's libs/views.js sends).
+function moduleTooltip(on, role, index) {
+    const model = window.model.shotPanel;
+    const event = {
+        __Type: "GFViewEventProxy",
+        type: 1,
+        contentID: model.tooltipContentId,
+        decoratorID: model.tooltipDecoratorId,
+        targetID: 0,
+        on: on,
+    };
+    if (on) {
+        event.isMouseEvent = true;
+        event.arguments = [
+            { __Type: "GFValueProxy", name: "role", string: role },
+            { __Type: "GFValueProxy", name: "index", number: index },
+        ];
+    }
+    viewEnv.handleViewEvent(event);
+}
+
+function shotVehicle(vehicle, role) {
     const node = element("div", "shotPanel__vehicle");
     const who = element("div", "shotPanel__who");
     who.appendChild(element("div", "shotPanel__role", vehicle.role));
@@ -410,21 +435,31 @@ function shotVehicle(vehicle) {
     card.appendChild(caption);
     body.appendChild(card);
     const modules = element("div", "shotPanel__modules");
-    arrayItems(vehicle.modules).forEach((module) => {
-        const row = element("div", "shotPanel__module");
+    arrayItems(vehicle.modules).forEach((module, index) => {
         const moduleIcon = element("div", "shotPanel__moduleIcon");
         setImage(moduleIcon, module.icon);
         if (module.tier) {
             moduleIcon.appendChild(element("div", "shotPanel__moduleTier", module.tier));
         }
-        row.appendChild(moduleIcon);
-        row.appendChild(element("div", "shotPanel__moduleLabel", module.label));
-        modules.appendChild(row);
+        moduleIcon.addEventListener("mouseenter", () => moduleTooltip(true, role, index));
+        moduleIcon.addEventListener("mouseleave", () => moduleTooltip(false, role, index));
+        modules.appendChild(moduleIcon);
     });
     body.appendChild(modules);
     node.appendChild(body);
     return node;
 }
+
+// The section icons: the client's damage log icons (the red cross of damage, the yellow one of modules), the armor
+// tooltip's (the resulting armor, the impact angle), the mod's for the others.
+const SECTION_ICONS = {
+    damage: "hitIcon hitIcon__damage__received",
+    crits: "hitIcon hitIcon__critical__received",
+    penetration: "shotPanel__icon__penetration",
+    armor: "shotPanel__icon__armor",
+    angle: "shotPanel__icon__angle",
+    distance: "shotPanel__icon__distance",
+};
 
 function drawShotPanel() {
     const model = window.model && window.model.shotPanel;
@@ -433,21 +468,25 @@ function drawShotPanel() {
         return;
     }
     shotVehicles.innerHTML = "";
-    shotVehicles.appendChild(shotVehicle(model.shooter));
-    shotVehicles.appendChild(shotVehicle(model.target));
-    shotPanel.querySelector(".shotPanel__resultIcon").className = `shotPanel__resultIcon hitIcon hitIcon__${model.resultIcon}`;
-    shotPanel.querySelector(".shotPanel__number").textContent = model.number;
+    shotVehicles.appendChild(shotVehicle(model.shooter, "shooter"));
+    shotVehicles.appendChild(shotVehicle(model.target, "target"));
     shotSections.innerHTML = "";
     arrayItems(model.sections).forEach((section) => {
         const head = element("div", `shotPanel__head shotPanel__head__${section.kind}`);
+        // Modules and crew get their accent only when the hit damaged some.
+        head.classList.toggle("shotPanel__head__critsDamaged", section.kind === "crits" && section.value !== "0");
+        head.appendChild(element("div", `shotPanel__icon ${SECTION_ICONS[section.kind] || ""}`));
         const value = element("div", "shotPanel__value");
         value.appendChild(element("span", section.counted ? "shotPanel__counted" : "", section.value));
         head.appendChild(value);
         const title = element("div", "shotPanel__title", section.title);
-        if (section.units) {
-            title.appendChild(element("span", "shotPanel__units", section.units));
-        }
         head.appendChild(title);
+        // The shell kind on a plate beside the penetration, like in the hits list: gold for a premium shell.
+        if (section.kind === "penetration" && model.shellText) {
+            const plate = element("div", "hitsPanel__shell shotPanel__shell", model.shellText);
+            plate.classList.toggle("hitsPanel__shellGold", Boolean(model.isGoldShell));
+            head.appendChild(plate);
+        }
         shotSections.appendChild(head);
         arrayItems(section.rows).forEach((item) => {
             const row = element("div", "shotPanel__row");
@@ -474,7 +513,8 @@ function draw() {
 engine.whenReady.then(() => {
     const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.fileButtons", "model.overlayPanel",
         "model.scenePanel", "model.shotPanel",
-        "model.shotPanel.shooter", "model.shotPanel.target"];
+        "model.shotPanel.shooter", "model.shotPanel.target", "model.shotPanel.sections",
+        "model.shotPanel.shooter.modules", "model.shotPanel.target.modules"];
     const callbackIDs = paths.map((path) =>
         viewEnv.addDataChangedCallback(path, 0, true),
     );

@@ -5,10 +5,12 @@ ShotPanelPresenter fills the view model (views/models/shot_panel_model.py) for t
 
 - the cards of the shooter and the target: the player, the vehicle (the client's name, tier, icon and nation flag)
   with its modules of the battle (the compact descriptor); beside the shooter its gun and the shell of the hit,
-  beside the target its turret when its type has more than one. On the received side the shooter is the other
-  vehicle and the target the player's, on the dealt side the other way round;
-- the hit's result icon (the hits panel's) and its number and battle time;
-- the sections: damage (the hit's, the shell's average), penetration (the shell's, at the hit's distance when it is
+  beside the target its turret when it has one (not a turretless vehicle) and its gun, as icons like the armor page's. On the
+  received side the shooter is the other vehicle and the target the player's, on the dealt side the other way round.
+  Over an icon the client's tooltip of the module (CONTEXT_VEHICLE_MODULE) or of the shell (ARMOR_INSPECTOR_SHELL)
+  shows, for the vehicle as the hangar shows it (a maps training copy as the vehicle it copies): tooltipData;
+- the sections, each with its icon (the client's damage log icons for damage and modules, the mod's for the others):
+  damage (the hit's, the shell's average), penetration (the shell's, at the hit's distance when it is
   known), armor and impact angle (the vehicle's armor where the hit line meets it, counted in the garage like the
   client's armor tooltip does: getMaterialsAtCursor along the line, the shell's penetration chance there,
   calculatePenetrationInfo), distance (recorded in battle) and modules and crew (the damaged ones of the player's
@@ -17,7 +19,9 @@ ShotPanelPresenter fills the view model (views/models/shot_panel_model.py) for t
 The shell is the overlay panel's (overlay_panel.py: the shooter's gun and shot with the hit's shell kind); the hit
 line is the hit lines presenter's (hit_lines.py: its first point and direction when drawn). The armor needs the
 vehicle's collision model, which comes a few frames after the vehicle: without it the armor is counted again after
-_RETRY seconds, up to _TRIES times. A value counted in the garage is marked (counted) for the page.
+_RETRY seconds, up to _TRIES times. The panel is filled once in the frame after a change, as one change comes from
+the hits panel and the hit lines together. The armor is what the line meets from _RAY / 2 before the hit point: a
+part in front of it is not what the shell hit. A value counted in the garage is marked (counted) for the page.
 
 Each fill logs its reason ("calls:") and what it shows the hit with ("check:"): the hit as recorded, the shell, the
 hangar vehicle's modules against the hit's, the armor along the line; a "check: MISMATCH" line tells a number of the
@@ -30,10 +34,16 @@ import BigWorld
 import nations
 from helpers import dependency, int2roman
 from helpers_common import computePiercingPowerAtDist
+from gui.impl.backport import createTooltipData
+from gui.impl.gen import R
+from gui.Scaleform.genConsts.TOOLTIPS_CONSTANTS import TOOLTIPS_CONSTANTS
+from gui.shared.gui_items.Vehicle import Vehicle
 from items import parseIntCompactDescr, vehicles
+from items.components.component_constants import MODERN_HE_PIERCING_POWER_REDUCTION_FACTOR_FOR_SHIELDS
 from skeletons.gui.shared.utils import IHangarSpace
 
-from gui.mods.sagtary_armor_hits.data.client_names import shownVehicleId, vehicleShortName
+from gui.mods.sagtary_armor_hits.data.client_names import (clientText, copiedName, shownVehicleDescr,
+                                                           shownVehicleId, vehicleShortName)
 from gui.mods.sagtary_armor_hits.data.hits import HitResult
 from gui.mods.sagtary_armor_hits.trace import calls, hitText, modulesText
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import hitsVehicle
@@ -46,8 +56,15 @@ _VEHICLE_ICON = 'img://gui/maps/icons/vehicle/%s.png'
 _FLAG = 'img://gui/maps/icons/flags/160x100/%s.png'
 _GUN_ICON = 'img://gui/maps/icons/modules/gun.png'
 _TURRET_ICON = 'img://gui/maps/icons/modules/tower.png'
-_SHELL_ICON = 'img://gui/maps/icons/shell/small/%s.png'
+_SHELL_ICON = 'img://gui/maps/icons/shell/x64x64/%s.png'
+# The card roles, as the page names them in a tooltip's arguments.
+_SHOOTER = 'shooter'
+_TARGET = 'target'
 _NONE = u'—'
+# The shell kind's abbreviation of the client's damage log (AP, APCR, HE, ...), as the hits panel shows it.
+_SHELL_TEXT_KEY = '#ingame_gui:damageLog/shellType/%s'
+# The armor tooltip's name of an armor layer's part, by VehicleArmorTags.
+_PART_TEXT_KEY = '#armor_inspector:tooltip/armor/part/%s'
 # English text of the damage info codes of a shell (data/hits.py DamagedDevice); another code is shown as it is.
 _DEVICE_STATES = {
     'DEVICE_CRITICAL_AT_SHOT': 'critical',
@@ -69,11 +86,6 @@ _PIERCED_EFFECTS = (0, 4, 5, 6)
 _RICOCHET_EFFECTS = (1, 2)
 # A shell's damage is its average within this part of it, both ways.
 _DAMAGE_SPREAD = 0.25
-
-
-def _time(seconds):
-    seconds = int(seconds)
-    return '%d:%02d' % (seconds // 60, seconds % 60)
 
 
 def _descriptor(vehicleId, descr):
@@ -98,12 +110,41 @@ def _vehicleImages(vehicleId):
         return '', ''
 
 
+def _shownVehicle(vehicleId, descr):
+    # The client's vehicle item as the hangar shows the vehicle, with its modules of the battle; None.
+    try:
+        strCD = shownVehicleDescr(vehicleId, descr)
+        if strCD:
+            return Vehicle(strCompactDescr=strCD)
+        return Vehicle(typeCompDescr=shownVehicleId(vehicleId) or vehicleId)
+    except Exception:
+        _logger.debug('shot panel: no vehicle item of %s', vehicleId, exc_info=True)
+        return None
+
+
+def _shownGun(descriptor, gun):
+    # The gun of the shown vehicle that the gun is (a maps training gun copies one by name); the installed one.
+    for turret in descriptor.type.turrets[0]:
+        for item in turret.guns:
+            if item.name == copiedName(gun.name):
+                return item
+    return descriptor.gun
+
+
+def _hasTurret(descriptor):
+    # Not a turretless vehicle: the armor page's test of its turret choice.
+    try:
+        return len(descriptor.hull.fakeTurrets['lobby']) != len(descriptor.turrets)
+    except Exception:
+        return True
+
+
 def _materials(entity, start, end, shellParams):
     # ([material], penetration info) of the vehicle's armor along the segment, like the client's armor tooltip; None
     # when the collision model does not meet the segment (not loaded yet).
     from helpers.collisions import SegmentCollisionResultExt
     from shared_utils.vehicle_utils import getMatinfo
-    from gui.impl.lobby.vehicle_hub.sub_presenters.armor.utils import getMaterialsAtCursor
+    from gui.impl.lobby.vehicle_hub.sub_presenters.armor.utils import getMaterialsAtCursor, stackMaterials
     from gui.impl.lobby.vehicle_hub.sub_presenters.armor.penetration_utils import calculatePenetrationInfo
     collisions = getattr(entity.appearance, 'collisions', None)
     if collisions is None:
@@ -112,32 +153,54 @@ def _materials(entity, start, end, shellParams):
     found = collisions.collideAllWorld(start, end)
     _logger.info('check: armor: collisions along the line (distance, cos, material, part) %s; the hit point is at '
                  '%.2f', [(round(item[0], 3), round(item[1], 3), item[2], item[3]) for item in found or ()], _RAY)
-    if not found or abs(found[0][0] - _RAY) > _RAY * 0.5:
+    # What the line meets well before the hit point (another part in front of it: a gun, a track guard) is not what
+    # the shell hit there.
+    found = [item for item in found or () if item[0] >= _RAY * 0.5]
+    if not found or found[0][0] - _RAY > _RAY * 0.5:
         _logger.info('check: armor: the line MISSES the armor at the hit point (model not ready, other modules or '
                      'another vehicle?)')
         return None
     isWheeled = entity.typeDescriptor.type.isWheeledVehicle
     segments = [SegmentCollisionResultExt(distance, angleCos, getMatinfo(entity, part, kind, isWheeled), part)
                 for distance, angleCos, kind, part in found]
-    return getMaterialsAtCursor(entity, segments, shellParams), calculatePenetrationInfo(shellParams, segments)
+    # The layers as the client's armor tooltip shows them: the same part's layers stacked (a track twice, x2).
+    materials = stackMaterials(getMaterialsAtCursor(entity, segments, shellParams), entity.typeDescriptor.level)
+    return materials, calculatePenetrationInfo(shellParams, segments)
 
 
 class ShotPanelPresenter(object):
     __hangarSpace = dependency.descriptor(IHangarSpace)
 
     def __init__(self, model, hitsPanel, overlayPanel, hitLines, texts):
-        # texts: the section titles, units and line labels in the client language (config TEXTS 'shot/*').
+        # texts: the section titles and line labels in the client language (config TEXTS 'shot/*').
         self._model = model
         self._hitsPanel = hitsPanel
         self._overlayPanel = overlayPanel
         self._hitLines = hitLines
         self._texts = texts
+        # The fill of the next frame or the next try of the armor.
         self._callbackID = None
         self._tries = 0
+        # The reasons of the fill to come, for the log.
+        self._reasons = []
         # (battle id, side, number) of the hit last logged in full.
         self._checked = None
+        # {role: (vehicle item, [(tooltip alias, compact descriptor)] of its modules in order)}
+        self._tooltips = {}
+
+    def tooltipData(self, role, index):
+        # The client's tooltip of a module of a card, None when there is none.
+        vehicle, modules = self._tooltips.get(role, (None, []))
+        if vehicle is None or not 0 <= index < len(modules):
+            return None
+        alias, compactDescr = modules[index]
+        calls('shot panel: tooltip', '%s %d: %s %s' % (role, index, alias, compactDescr))
+        return createTooltipData(isSpecial=True, specialAlias=alias, specialArgs=(compactDescr, vehicle))
 
     def init(self):
+        with self._model.transaction() as model:
+            model.setTooltipContentId(R.views.common.tooltip_window.backport_tooltip_content.BackportTooltipContent())
+            model.setTooltipDecoratorId(R.views.common.tooltip_window.tooltip_window.TooltipWindow())
         self._hitsPanel.onChanged += self._onHitsChanged
         self._hitLines.onDrawn += self._onLinesDrawn
         self._update('init')
@@ -150,6 +213,7 @@ class ShotPanelPresenter(object):
         self._hitsPanel = None
         self._overlayPanel = None
         self._hitLines = None
+        self._tooltips = {}
 
     def _cancel(self):
         if self._callbackID is not None:
@@ -167,9 +231,18 @@ class ShotPanelPresenter(object):
         self._update('hit lines drawn' if self._hitLines.chosenShot is not None else 'hit lines cleared')
 
     def _update(self, reason):
+        # One change of the hits panel tells it up to three times (the lines cleared, drawn, the panel changed), and
+        # the overlay panel sets the hit's shell after the hit lines: filled once, in the next frame, when all of
+        # them are done.
         self._cancel()
         self._tries = 0
-        self._fill(reason)
+        self._reasons.append(reason)
+        self._callbackID = BigWorld.callback(0.0, self._onFrame)
+
+    def _onFrame(self):
+        self._callbackID = None
+        reasons, self._reasons = self._reasons, []
+        self._fill(', '.join(reasons))
 
     def _fill(self, reason):
         battle, side, hit = self._hitsPanel.selection
@@ -199,12 +272,15 @@ class ShotPanelPresenter(object):
         else:
             shooter = (hit.vehicleId, hit.vehicleDescr, hit.playerName)
             target = (battle.vehicleId, battle.vehicleDescr, myName)
+        shooterModules = self._shooterModules(shooter, gunShot)
+        targetModules = self._targetModules(target)
         with self._model.transaction() as model:
             model.setIsVisible(True)
-            self._fillVehicle(model.shooter, self._texts['shooter'], shooter, self._shooterModules(gunShot))
-            self._fillVehicle(model.target, self._texts['target'], target, self._targetModules(*target[:2]))
-            model.setResultIcon('%s__%s' % (hit.result, side))
-            model.setNumber(u'#%s · %s' % (self._hitsPanel.selectedNumber, _time(hit.time)))
+            self._fillVehicle(model.shooter, self._texts['shooter'], shooter, shooterModules)
+            self._fillVehicle(model.target, self._texts['target'], target, targetModules)
+            model.setShellText(clientText(_SHELL_TEXT_KEY % hit.shellType) or '' if hit.shellType else '')
+            # The shell shown on the shooter's card, else the hit's premium flag.
+            model.setIsGoldShell(bool(gunShot[1].shell.isGold) if gunShot is not None else bool(hit.isGoldShell))
             sections = model.getSections()
             sections.clear()
             for section in self._sections(hit, gunShot, armor):
@@ -227,31 +303,43 @@ class ShotPanelPresenter(object):
         model.setFlag(flag)
         array = model.getModules()
         array.clear()
-        for moduleIcon, moduleTier, label in modules:
+        for moduleIcon, moduleTier in modules:
             item = ShotModuleModel()
             item.setIcon(moduleIcon)
             item.setTier(moduleTier)
-            item.setLabel(label)
             array.addViewModel(item)
         array.invalidate()
 
-    @staticmethod
-    def _shooterModules(gunShot):
-        # The shooter's gun and the hit's shell.
+    def _shooterModules(self, shooter, gunShot):
+        # [(icon, tier)] of the shooter's gun and the hit's shell; their tooltips for the shown vehicle.
+        self._tooltips[_SHOOTER] = (None, [])
         if gunShot is None:
             return []
         gun, shot = gunShot
-        return [(_GUN_ICON, int2roman(gun.level), gun.userString),
-                (_SHELL_ICON % shot.shell.iconName, '', shot.shell.userString)]
+        vehicle = _shownVehicle(*shooter[:2])
+        if vehicle is not None:
+            shownGun = _shownGun(vehicle.descriptor, gun)
+            shots = [item for item in shownGun.shots if item.shell.name == copiedName(shot.shell.name)] or [
+                item for item in shownGun.shots if item.shell.kind == shot.shell.kind]
+            self._tooltips[_SHOOTER] = (vehicle, [
+                (TOOLTIPS_CONSTANTS.CONTEXT_VEHICLE_MODULE, shownGun.compactDescr),
+                (TOOLTIPS_CONSTANTS.ARMOR_INSPECTOR_SHELL, (shots[0] if shots else shot).shell.compactDescr)])
+        return [(_GUN_ICON, int2roman(gun.level)), (_SHELL_ICON % shot.shell.iconName, '')]
 
-    @staticmethod
-    def _targetModules(vehicleId, descr):
-        # The target's turret when its type has more than one to choose.
-        descriptor = _descriptor(vehicleId, descr)
-        if descriptor is None or len(descriptor.type.turrets[0]) < 2:
+    def _targetModules(self, target):
+        # [(icon, tier)] of the target's turret (when it has one) and gun, like the armor page's modules; their
+        # tooltips for the shown vehicle.
+        self._tooltips[_TARGET] = (None, [])
+        vehicle = _shownVehicle(*target[:2])
+        if vehicle is None:
             return []
-        turret = descriptor.turret
-        return [(_TURRET_ICON, int2roman(turret.level), turret.userString)]
+        descriptor = vehicle.descriptor
+        modules = [descriptor.turret] if _hasTurret(descriptor) else []
+        modules.append(descriptor.gun)
+        self._tooltips[_TARGET] = (vehicle, [(TOOLTIPS_CONSTANTS.CONTEXT_VEHICLE_MODULE, module.compactDescr)
+                                             for module in modules])
+        return [(_TURRET_ICON if module is descriptor.turret else _GUN_ICON, int2roman(module.level))
+                for module in modules]
 
     def _armor(self, hit):
         # ([material], penetration info) where the chosen hit's line meets the hangar vehicle, None without it.
@@ -313,7 +401,7 @@ class ShotPanelPresenter(object):
         ricochet = any(effect in _RICOCHET_EFFECTS for effect in hit.hitEffects)
         chance = getattr(armor[1], 'chance', None) if armor is not None else None
         if chance is not None and not isHighExplosive and not hit.isSplash:
-            if pierced and chance <= 0:
+            if pierced and hit.damage > 0 and chance <= 0:
                 mismatches.append('pierced, the garage chance is %s%%' % chance)
             if hit.hitEffects and not pierced and not ricochet and chance >= 100:
                 mismatches.append('not pierced, the garage chance is %s%%' % chance)
@@ -324,7 +412,10 @@ class ShotPanelPresenter(object):
                     (1 - _DAMAGE_SPREAD) * average - 1 <= hit.damage <= (1 + _DAMAGE_SPREAD) * average + 1):
                 mismatches.append('damage %s is not the shell average %s +-%d%% (the last hit points, another shell?)'
                                   % (hit.damage, average, _DAMAGE_SPREAD * 100))
-            if bool(shell.isGold) != bool(hit.isGoldShell):
+            # A hit without damage events does not know its premium flag: a mismatch only when the gun has another
+            # shell of the kind to choose.
+            kinds = [shot for shot in gunShot[0].shots if shot.shell.kind == hit.shellType]
+            if len(kinds) > 1 and bool(shell.isGold) != bool(hit.isGoldShell):
                 mismatches.append('the shell %s is not of the hit premium flag %s' % (shell.name, hit.isGoldShell))
         for mismatch in mismatches:
             _logger.warning('check: MISMATCH hit #%s %s: %s', number, side, mismatch)
@@ -335,7 +426,12 @@ class ShotPanelPresenter(object):
         isHighExplosive = hit.shellType == 'HIGH_EXPLOSIVE'
         sections = []
         rows = [(str(int(shell.armorDamage[0])), texts['avgDamage'], False)] if shell is not None else []
-        sections.append(self._section('damage', texts['damage'], texts['hp'], str(hit.damage), False, rows))
+        if shell is not None and hit.damage > 0 and shell.armorDamage[0] > 0:
+            # How far the damage is from the shell's average, in percent of it.
+            deviation = int(round((hit.damage - shell.armorDamage[0]) * 100.0 / shell.armorDamage[0]))
+            rows.append((u'-%d%%' % -deviation if deviation < 0 else u'+%d%%' % deviation if deviation else u'0%',
+                         texts['deviation'], True))
+        sections.append(self._section('damage', texts['damage'], str(hit.damage), False, rows))
         if gunShot is not None:
             piercing = gunShot[1].piercingPower
             average = str(int(round(piercing[0])))
@@ -343,47 +439,67 @@ class ShotPanelPresenter(object):
             if armor is not None and armor[1] is not None:
                 rows.append(('%s%%' % armor[1].chance, texts['chance'], True))
             if hit.distance and not isHighExplosive:
-                value = str(int(round(computePiercingPowerAtDist(piercing, hit.distance))))
+                atDistance = computePiercingPowerAtDist(piercing, hit.distance)
+                value = str(int(round(atDistance)))
                 rows.insert(0, (average, texts['avgPenetration'], False))
-                sections.append(self._section('penetration', texts['penetration'], texts['mm'], value, True, rows))
+                # What the distance took off the shell's penetration (the shell's average less the value).
+                loss = int(round(atDistance)) - int(round(piercing[0]))
+                rows.insert(1, (u'-%d' % -loss if loss < 0 else u'%d' % loss,
+                                texts['distanceLoss'] % {'distance': int(round(hit.distance))}, True))
+                sections.append(self._section('penetration', texts['penetration'], value, True, rows))
             else:
-                sections.append(self._section('penetration', texts['penetration'], texts['mm'], average, False, rows))
-        materials = armor[0] if armor is not None else []
-        main = [material for material in materials if not material.isSpacedArmor]
-        spaced = [material for material in materials if material.isSpacedArmor]
-        if main:
-            rows = [(str(int(main[0].nominalArmor)), texts['nominal'], True)]
-            if spaced:
-                rows.append(('+ %d' % sum(int(material.nominalArmor) for material in spaced), texts['spaced'], True))
-            sections.append(self._section('armor', texts['armor'], texts['mm'], str(int(round(main[0].resArmor))),
-                                          True, rows))
+                sections.append(self._section('penetration', texts['penetration'], average, False, rows))
+        # The armor as the client's armor tooltip counts it: all the layers on the way, each by its reduction factor
+        # (a modern high explosive shell's on spaced armor): the resulting armor; the nominal one with its layers in
+        # brackets ('55 nominal (25 Chassis + 30 Hull)'), and the armor the angles add.
+        layers = armor[0] if armor is not None else []
+        shellParams = self._overlayPanel.shellParams
+        reduction = lambda layer: (MODERN_HE_PIERCING_POWER_REDUCTION_FACTOR_FOR_SHIELDS if layer.isSpacedArmor and
+                                   getattr(shellParams, 'useHEShell', False) else 1)
+        nominal = sum(round(layer.nominalArmor) * reduction(layer) for layer in layers)
+        effective = int(round(sum(layer.resArmor * reduction(layer) for layer in layers)))
+        if len(layers) > 1:
+            parts = u' + '.join(u'%d %s' % (int(round(layer.nominalArmor)), self._layerText(layer)) for layer in layers)
+        elif layers:
+            parts = self._layerText(layers[0])
+        if layers:
+            sections.append(self._section('armor', texts['armor'], str(effective), True, [
+                (str(int(nominal)), u'%s (%s)' % (texts['nominal'], parts), True),
+                (u'+%d' % int(effective - nominal), texts['angleArmor'], True)]))
         else:
-            sections.append(self._section('armor', texts['armor'], texts['mm'], _NONE, False, []))
-        if not isHighExplosive:
-            angle = u'%d°' % int(round(main[0].viewAngle)) if main else _NONE
-            rows = []
-            if shell is not None:
-                from gui.shared.utils.functions import getShellImpactParams
-                ricochetCos = getShellImpactParams(shell.type)[0]
-                if ricochetCos > 0.0:
-                    rows.append((u'> %d°' % int(round(math.degrees(math.acos(ricochetCos)))), texts['ricochet'],
-                                 False))
-            sections.append(self._section('angle', texts['angle'], '', angle, bool(main), rows))
+            sections.append(self._section('armor', texts['armor'], _NONE, False, []))
+        # The angle of the first layer, like the tooltip, for every shell (a high explosive one does not ricochet, but
+        # the angle makes its armor thicker too); the ricochet angle only beside it.
+        angle = u'%d°' % int(round(layers[0].viewAngle)) if layers else _NONE
+        rows = []
+        if layers and shell is not None and not isHighExplosive:
+            from gui.shared.utils.functions import getShellImpactParams
+            ricochetCos = getShellImpactParams(shell.type)[0]
+            if ricochetCos > 0.0:
+                rows.append((u'> %d°' % int(round(math.degrees(math.acos(ricochetCos)))), texts['ricochet'], False))
+        sections.append(self._section('angle', texts['angle'], angle, bool(layers), rows))
         distance = str(int(round(hit.distance))) if hit.distance else _NONE
-        sections.append(self._section('distance', texts['distance'], texts['m'], distance, False, []))
+        sections.append(self._section('distance', texts['distance'], distance, False, []))
         rows = []
         for device in hit.damagedDevices:
             name = device.extra[:-len(_HEALTH_SUFFIX)] if device.extra.endswith(_HEALTH_SUFFIX) else device.extra
             rows.append((name or device.device, _DEVICE_STATES.get(device.code, device.code), False))
-        sections.append(self._section('crits', texts['crits'], '', str(hit.critsCount), False, rows))
+        sections.append(self._section('crits', texts['crits'], str(hit.critsCount), False, rows))
         return sections
 
     @staticmethod
-    def _section(kind, title, units, value, counted, rows):
+    def _layerText(layer):
+        # The layer's part in the client's words, and how many layers of it: 'Chassis x2'.
+        name = getattr(layer.partName, 'value', layer.partName)
+        text = clientText(_PART_TEXT_KEY % name) or name
+        count = getattr(layer, 'count', 1) or 1
+        return u'%s x%d' % (text, count) if count > 1 else text
+
+    @staticmethod
+    def _section(kind, title, value, counted, rows):
         section = ShotSectionModel()
         section.setKind(kind)
         section.setTitle(title)
-        section.setUnits(units)
         section.setValue(value)
         section.setCounted(counted)
         array = section.getRows()

@@ -26,7 +26,7 @@ class HitItemModel(ViewModel):
         self._setString(1, value)
 
     def getResult(self):
-        # data.hits.HitResult: 'damage', 'critical', 'blocked'.
+        # data.hits.HitResult: 'damage', 'blocked', 'ricochet', 'noDamage'.
         return self._getString(2)
 
     def setResult(self, value):

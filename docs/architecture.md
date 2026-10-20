@@ -42,7 +42,7 @@ Data, without UI (`data/`):
 | Module                    | Does                                                                         |
 |---------------------------|------------------------------------------------------------------------------|
 | `data/record.py`          | `Record`: a plain data object with fields and defaults (`FIELDS`) and nested records (`NESTED`), written to and read from a dict; the base of `Battle` and `Hit` |
-| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects, the points the shell hit as `HitPoint`s, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result like the client's damage log: damage, critical, blocked), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`) |
+| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects, the points the shell hit as `HitPoint`s, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result: damage, else like the client's armor tooltip by the last point's effect: blocked, ricochet, no damage), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`) |
 | `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays, and its winner on `onRoundFinished`) |
 | `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`, `vehicleId`), so a battle from a file shows in the current client language |
 | `data/battle_file.py`     | the battles written to JSON files and read back (`BattleFiles`), for the file buttons (reports): one file `hits_<battleId>.json` per battle, written over when saved again; loading reads all `hits_*.json` of the folder; a file has `formatVersion` (its layout) and `appVersion` (the mod that wrote it) |
@@ -63,7 +63,7 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/scene_lines.py`               | dashed tubes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay |
 | `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
 | `views/hits/overlay_panel.py`             | presenter of the overlay panel: the armor page's three overlay types (client texts) and the client's armor overlay on the hangar vehicle |
-| `views/hits/shot_panel.py`                | presenter of the shot panel: the chosen hit's shooter and target cards (vehicle, gun and shell, turret), result, and sections (damage, penetration, armor and angle counted in the garage, distance, damaged modules) |
+| `views/hits/shot_panel.py`                | presenter of the shot panel: the chosen hit's shooter and target cards (vehicle; icons of the shooter's gun and shell, the target's turret and gun, with the client's module and shell tooltips), result, and sections (damage, penetration, armor and angle counted in the garage, distance, damaged modules) |
 | `views/hits/armor_tooltip.py`             | presenter of the armor tooltip: the client's armor page tooltip (`ArmorTooltipWindow`) for the armor under the mouse, with the chosen hit's shell |
 | `views/hits/scene_panel.py`               | presenter of the scene panel: lines of all shown hits (received side only) or of the chosen one, the shooter view (camera along the shell) |
 | `views/hits/file_buttons.py`              | presenter of the file buttons: save the chosen battle to its file, load all the battle files into the `BattleStore`; the result is a system message with the path |
@@ -159,7 +159,7 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
   the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
   `onVehicleChangeStarted` and on another hit. Each piece of the chosen hit's way is dashed in the color of the hit's
-  result (red damage, orange critical without damage, grey blocked) and black, from the color, 10 cm a dash, on both
+  result (red damage, grey blocked, pink ricochet, cyan no damage) and black, from the color, 10 cm a dash, on both
   sides; the other hits' ways ("All" lines) are solid in their result's color; a dash is a cylinder 18 mm thick drawn with
   the client's debug drawer (`DebugDrawer.DebugDrawer().cylinder()`, tested against the scene's depth, so the vehicle
   hides what is behind it), again on every frame. The debug drawer draws after the client's armor overlay, which
@@ -184,7 +184,10 @@ place on the page.
 The hits panel under the selector shows the hits of the selected battle: on the player's vehicle or by the player,
 the result filters with their counts, the chosen hit and the list (number and time, then the order of the client's damage log:
 damage (none when the hit took none, "xN" crits for a hit on modules without damage, like the client's log),
-result, shell kind (white plate, gold for a premium shell), vehicle class, vehicle; the player last). Its icons are the client's damage log icons, taken from the
+result, shell kind (white plate, gold for a premium shell), vehicle class, vehicle; the player last). Its result icons are the mod's copies in
+`gui/maps/sagtary_armor_hits/hits/`: the client's damage log icons (damage, critical, blocked) cut out of its battle
+atlas, and the mod's own ricochet (a dashed way off a plate, on a pink square) and no damage (the blocked shield in
+cyan, a dash inside), drawn in their style in the colors of the armor tooltip's results' texts. Its vehicle class icons are the client's damage log icons, taken from the
 client's battle atlas (`gui/flash/atlases/commonBattleLobby.dds`, positions from its `.xml`) as CSS sprites; the
 shell kinds are the client's damage log texts (`#ingame_gui:damageLog/shellType/*`).
 

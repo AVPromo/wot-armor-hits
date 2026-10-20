@@ -10,7 +10,8 @@ solid. The pieces are tubes drawn with the client's debug drawer (scene_lines.py
 hidden behind the vehicle.
 
 With the shooter view on, the hangar camera looks along the chosen hit's shell at its first point
-(HangarCameraSystem.moveCamera); turned off, the camera goes back to its place (resetCameraTarget).
+(HangarCameraSystem.moveCamera); turned off, the camera goes back to its place (resetCameraTarget). The scene panel's
+reset puts the camera back the same way: behind the shell with the shooter view on, else to its place.
 
 When it draws: a hit is chosen and the hangar already shows its vehicle, loaded: at once; otherwise the hangar
 vehicle presenter has asked for the vehicle, and the lines are drawn when the hangar tells it has loaded it
@@ -54,8 +55,9 @@ _logger = logging.getLogger('sagtary.armor_hits')
 _DASH_BLACK = 0xFF101010
 _RESULT_COLOURS = {
     HitResult.DAMAGE: 0xFFFF3020,
-    HitResult.CRITICAL: 0xFFFF9A1F,
     HitResult.BLOCKED: 0xFF9A9A9A,
+    HitResult.RICOCHET: 0xFFD880D8,
+    HitResult.NO_DAMAGE: 0xFFA8E0E2,
 }
 # Metres: the way drawn before the first point and after a ricochet.
 _LEAD = 2.5
@@ -187,9 +189,11 @@ class HitLinesPresenter(object):
         self.__hangarSpace.onVehicleChanged += self._onVehicleChanged
         self._hitsPanel.onChanged += self._update
         self._scenePanel.onChanged += self._onScenePanelChanged
+        self._scenePanel.onResetCamera += self._onResetCamera
         self._update()
 
     def fini(self):
+        self._scenePanel.onResetCamera -= self._onResetCamera
         self._scenePanel.onChanged -= self._onScenePanelChanged
         self._hitsPanel.onChanged -= self._update
         self.__hangarSpace.onVehicleChanged -= self._onVehicleChanged
@@ -228,6 +232,14 @@ class HitLinesPresenter(object):
             self._resetCamera()
         self._target = None
         self._update()
+
+    def _onResetCamera(self):
+        calls('hit lines: reset camera', 'shooter view %s, line %s' % (self._scenePanel.shooterView,
+                                                                     self.chosenShot is not None))
+        if self._scenePanel.shooterView and self.chosenShot is not None:
+            self._moveCamera(*self.chosenShot)
+        else:
+            self._resetCamera()
 
     def _onVehicleChangeStarted(self, *args):
         calls('hit lines: vehicle change started')

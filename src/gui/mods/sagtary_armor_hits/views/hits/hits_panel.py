@@ -10,9 +10,10 @@ the client's texts.
 import logging
 
 from Event import Event
+from items.vehicles import VehicleDescr
 
 from gui.mods.sagtary_armor_hits.data.client_names import clientText, vehicleClass, vehicleShortName
-from gui.mods.sagtary_armor_hits.data.hits import HitResult
+from gui.mods.sagtary_armor_hits.data.hits import HitResult, ownShellIsGold
 from gui.mods.sagtary_armor_hits.trace import calls
 from gui.mods.sagtary_armor_hits.views.models.hits_panel_model import HitFilterModel, HitItemModel
 
@@ -34,6 +35,17 @@ _SHELL_NAME_KEY = '#item_types:shell/kinds/%s'
 def _time(seconds):
     seconds = int(seconds)
     return '%d:%02d' % (seconds // 60, seconds % 60)
+
+
+def _ownGoldKinds(battle):
+    # The shell kinds of the player's gun in the battle that are only premium shells: a dealt hit recorded before the
+    # mod knew the player's premium shells is gold by its kind.
+    try:
+        descriptor = VehicleDescr(compactDescr=battle.vehicleDescr.decode('hex'))
+    except Exception:
+        return frozenset()
+    kinds = set(shot.shell.kind for shot in descriptor.gun.shots)
+    return frozenset(kind for kind in kinds if ownShellIsGold(descriptor, kind))
 
 
 def _fillHit(item, number, hit):
@@ -175,9 +187,10 @@ class HitsPanelPresenter(object):
                 self._hitNumber = numbers[0] if numbers else None
             hitModels = model.getHits()
             hitModels.clear()
+            goldKinds = _ownGoldKinds(self._store.getBattle(self._battleId)) if self._side == DEALT and shown else ()
             for number, hit in shown:
                 item = HitItemModel()
-                _fillHit(item, number, hit)
+                _fillHit(item, number, hit.replace(isGoldShell=True) if hit.shellType in goldKinds else hit)
                 hitModels.addViewModel(item)
             hitModels.invalidate()
             model.setSelectedHit(numbers.index(self._hitNumber) if self._hitNumber in numbers else -1)

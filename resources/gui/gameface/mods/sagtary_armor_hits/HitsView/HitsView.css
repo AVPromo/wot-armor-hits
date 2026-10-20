@@ -676,7 +676,8 @@ body {
     color: var(--color-general-primary);
 }
 
-/* The client's damage log icons (16 x 16), from its battle atlas. */
+/* The client's damage log icons (16 x 16), from its battle atlas: the vehicle classes; the results below are the
+   mod's own copies. */
 .hitIcon {
     width: 16rem;
     height: 16rem;
@@ -686,24 +687,47 @@ body {
     background-repeat: no-repeat;
 }
 
+/* The hit results' icons, copied into the mod: the damage log's red and green damage, its yellow critical (the shot
+   panel's modules section) and its shield of a blocked hit, cut out of the atlas; the mod's ricochet and no damage,
+   drawn in their style, in the colors of the armor tooltip's results' texts. */
+.hitIcon__damage__received,
+.hitIcon__damage__dealt,
+.hitIcon__critical__received,
+.hitIcon__blocked__received,
+.hitIcon__blocked__dealt,
+.hitIcon__ricochet__received,
+.hitIcon__ricochet__dealt,
+.hitIcon__noDamage__received,
+.hitIcon__noDamage__dealt {
+    background-size: 16rem 16rem;
+    background-position: 0 0;
+}
+
 .hitIcon__damage__received {
-    background-position: -1001rem -102rem;
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/damage_received.png);
 }
 
 .hitIcon__damage__dealt {
-    background-position: -1001rem -85rem;
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/damage_dealt.png);
 }
 
-/* A hit on a module without damage: the orange critical icon on both sides (the client's green one is for
-   dealt crits with damage, which show the damage icon here). */
-.hitIcon__critical__received,
-.hitIcon__critical__dealt {
-    background-position: -1001rem -51rem;
+.hitIcon__critical__received {
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/critical.png);
 }
 
 .hitIcon__blocked__received,
 .hitIcon__blocked__dealt {
-    background-position: -813rem -412rem;
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/blocked.png);
+}
+
+.hitIcon__ricochet__received,
+.hitIcon__ricochet__dealt {
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/ricochet.png);
+}
+
+.hitIcon__noDamage__received,
+.hitIcon__noDamage__dealt {
+    background-image: url(img://gui/maps/sagtary_armor_hits/hits/no_damage.png);
 }
 
 .hitIcon__class__light {
@@ -919,6 +943,75 @@ body {
     background-color: rgba(255, 255, 255, 0.12);
 }
 
+/* The reset's divider stays on the dealt side too. */
+.scenePanel__oneLine .scenePanel__resetDivider {
+    display: block;
+}
+
+/* The camera reset: a button like the shooter view's, with a circular arrow; it has no on state. */
+.scenePanel__reset {
+    display: flex;
+    align-items: center;
+    padding: 0 16rem;
+    font-size: 13rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--color-general-tertiary);
+    border-top: 3rem solid transparent;
+    border-bottom: 3rem solid transparent;
+    cursor: pointer;
+}
+
+.scenePanel__reset:hover {
+    color: var(--color-general-secondary);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.scenePanel__reset:active {
+    color: var(--color-general-primary);
+}
+
+.scenePanel__resetIcon {
+    position: relative;
+    width: 16rem;
+    height: 16rem;
+    margin-right: 8rem;
+}
+
+/* Three quarters of a ring, open at the top right, and an arrow head at its end. */
+.scenePanel__resetArc {
+    position: absolute;
+    top: 2rem;
+    left: 2rem;
+    width: 12rem;
+    height: 12rem;
+    box-sizing: border-box;
+    border: 2rem solid #8a8f94;
+    border-top-color: transparent;
+    border-radius: 50%;
+    transform: rotate(45deg);
+}
+
+.scenePanel__resetHead {
+    position: absolute;
+    top: 0;
+    left: 9rem;
+    width: 0;
+    height: 0;
+    border-top: 4rem solid transparent;
+    border-bottom: 4rem solid transparent;
+    border-left: 5rem solid #8a8f94;
+}
+
+.scenePanel__reset:hover .scenePanel__resetArc {
+    border-color: #c8c8c8;
+    border-top-color: transparent;
+}
+
+.scenePanel__reset:hover .scenePanel__resetHead {
+    border-left-color: #c8c8c8;
+}
+
 /* The sight of the shooter view: a ring with four ticks, grey, orange when the view is on. */
 .scenePanel__sight {
     position: relative;
@@ -1013,17 +1106,21 @@ body {
     border-bottom: 1rem solid rgba(255, 255, 255, 0.08);
 }
 
+/* The role and the player on one line, centered on it (Gameface's baseline alignment puts them apart). */
 .shotPanel__who {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    height: 16rem;
     margin-bottom: 6rem;
     font-size: 13rem;
+    line-height: 16rem;
 }
 
 .shotPanel__role {
     flex-shrink: 0;
     margin-right: 8rem;
     font-size: 11rem;
+    line-height: 16rem;
     text-transform: uppercase;
     color: var(--color-general-tertiary);
 }
@@ -1093,69 +1190,49 @@ body {
 
 .shotPanel__modules {
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-content: flex-start;
     margin-left: 8rem;
 }
 
-.shotPanel__module {
-    display: flex;
-    align-items: center;
-    height: 30rem;
-    margin-bottom: 2rem;
-}
-
+/* A module or the shell: the client's icon in a square, the module's tier at the top left, like the armor page's;
+   the client's tooltip over it. */
 .shotPanel__moduleIcon {
     position: relative;
-    width: 28rem;
-    height: 28rem;
+    width: 40rem;
+    height: 40rem;
     flex-shrink: 0;
+    margin: 0 6rem 6rem 0;
     background-color: #1b1f22;
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 26rem 26rem;
+    background-size: 36rem 36rem;
     border: 1rem solid #3a4045;
+    pointer-events: auto;
+}
+
+.shotPanel__moduleIcon:hover {
+    border-color: #8a8f94;
 }
 
 .shotPanel__moduleTier {
     position: absolute;
-    top: 0;
-    left: 2rem;
-    font-size: 9rem;
+    top: 1rem;
+    left: 3rem;
+    font-size: 11rem;
+    font-weight: bold;
     color: #c9ced3;
-}
-
-.shotPanel__moduleLabel {
-    min-width: 0;
-    margin-left: 6rem;
-    font-size: 12rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--color-general-secondary);
-}
-
-.shotPanel__result {
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-    padding: 7rem 12rem;
-    border-bottom: 1rem solid rgba(255, 255, 255, 0.08);
-}
-
-.shotPanel__number {
-    margin-left: auto;
-    font-size: 13rem;
-    color: var(--color-general-tertiary);
+    text-shadow: 0 1rem 2rem #000000;
 }
 
 .shotPanel__sections {
     padding-bottom: 6rem;
 }
 
-/* A section: the value right aligned, then the title and units; damage and penetration with an accent line. */
+/* A section: the value right aligned, then the title; damage and penetration with an accent line. */
 .shotPanel__head {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     padding: 5rem 12rem 2rem 9rem;
     border-left: 3rem solid transparent;
     border-top: 1rem solid rgba(255, 255, 255, 0.05);
@@ -1167,8 +1244,47 @@ body {
 }
 
 .shotPanel__head__penetration {
+    border-left-color: #f0603f;
+    background-color: rgba(230, 225, 214, 0.06);
+}
+
+.shotPanel__head__critsDamaged {
     border-left-color: #f2a93b;
     background-color: rgba(230, 225, 214, 0.06);
+}
+
+/* A section's icon before its value, 16 x 16: the mod's result icons for damage and modules, its own in their style
+   for the others. */
+.shotPanel__icon {
+    width: 16rem;
+    height: 16rem;
+    flex-shrink: 0;
+    margin-right: 4rem;
+}
+
+.shotPanel__icon__penetration,
+.shotPanel__icon__armor,
+.shotPanel__icon__angle,
+.shotPanel__icon__distance {
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 16rem 16rem;
+}
+
+.shotPanel__icon__penetration {
+    background-image: url(img://gui/maps/sagtary_armor_hits/shot/penetration.png);
+}
+
+.shotPanel__icon__armor {
+    background-image: url(img://gui/maps/sagtary_armor_hits/shot/armor.png);
+}
+
+.shotPanel__icon__angle {
+    background-image: url(img://gui/maps/sagtary_armor_hits/shot/angle.png);
+}
+
+.shotPanel__icon__distance {
+    background-image: url(img://gui/maps/sagtary_armor_hits/shot/distance.png);
 }
 
 .shotPanel__value {
@@ -1187,16 +1303,15 @@ body {
     color: var(--color-general-primary);
 }
 
-.shotPanel__units {
-    margin-left: 4rem;
-    font-weight: normal;
-    color: var(--color-general-tertiary);
+/* The shell kind's plate (the hits list's) beside the penetration's title. */
+.shotPanel__shell {
+    margin-left: 8rem;
 }
 
 .shotPanel__row {
     display: flex;
     align-items: baseline;
-    padding: 0 12rem 1rem 12rem;
+    padding: 0 12rem 1rem 32rem;
     font-size: 12rem;
 }
 

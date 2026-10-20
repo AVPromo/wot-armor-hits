@@ -18,6 +18,7 @@ chosen battle to its file, load the battle files) are there when the view is giv
 from frameworks.wulf import WindowFlags
 from gui.hangar_cameras.hangar_camera_common import CameraRelatedEvents
 from gui.impl.gen import R
+from gui.impl.lobby.common.view_wrappers import createBackportTooltipDecorator
 from gui.impl.pub import WindowImpl
 from gui.impl.pub.view_component import ViewComponent
 from gui.shared import EVENT_BUS_SCOPE, events, g_eventBus
@@ -42,8 +43,8 @@ VIEW_ALIAS = 'sagtaryArmorHitsView'
 
 # The shot panel's texts.
 _SHOT_TEXTS = ('shot/shooter', 'shot/target', 'shot/damage', 'shot/penetration', 'shot/armor', 'shot/angle',
-               'shot/distance', 'shot/crits', 'shot/hp', 'shot/mm', 'shot/m', 'shot/avgDamage', 'shot/avgPenetration',
-               'shot/chance', 'shot/nominal', 'shot/spaced', 'shot/ricochet')
+               'shot/distance', 'shot/crits', 'shot/avgDamage', 'shot/avgPenetration',
+               'shot/chance', 'shot/nominal', 'shot/angleArmor', 'shot/ricochet', 'shot/distanceLoss', 'shot/deviation')
 
 
 class HitsView(ViewComponent):
@@ -53,6 +54,18 @@ class HitsView(ViewComponent):
         self._battleStore = battleStore
         self._battleFiles = battleFiles
         self._presenters = []
+        self._shotPanel = None
+
+    @createBackportTooltipDecorator()
+    def createToolTip(self, event):
+        return super(HitsView, self).createToolTip(event)
+
+    def getTooltipData(self, event):
+        # The client's tooltip of a module or the shell of the shot panel's cards (the page tells the card's role and
+        # the module's index).
+        if self._shotPanel is None:
+            return None
+        return self._shotPanel.tooltipData(event.getArgument('role'), int(event.getArgument('index', -1)))
 
     def _getEvents(self):
         model = self.getViewModel()
@@ -75,7 +88,8 @@ class HitsView(ViewComponent):
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
         # The scene panel's choices: which lines are drawn over that vehicle, the shooter view.
         scenePanel = ScenePanelPresenter(model.scenePanel, {
-            'current': text('lines/current'), 'shooter': text('camera/shooter')}, hitsPanel)
+            'current': text('lines/current'), 'shooter': text('camera/shooter'),
+            'reset': text('camera/reset')}, hitsPanel)
         self._presenters.append(scenePanel)
         hitLines = HitLinesPresenter(hitsPanel, scenePanel)
         self._presenters.append(hitLines)
@@ -83,8 +97,9 @@ class HitsView(ViewComponent):
         self._presenters.append(overlayPanel)
         self._presenters.append(ArmorTooltipPresenter(overlayPanel))
         # The chosen hit's details: its shell from the overlay panel, its line from the hit lines.
-        self._presenters.append(ShotPanelPresenter(model.shotPanel, hitsPanel, overlayPanel, hitLines, dict(
-            (key.split('/')[1], text(key)) for key in _SHOT_TEXTS)))
+        self._shotPanel = ShotPanelPresenter(model.shotPanel, hitsPanel, overlayPanel, hitLines, dict(
+            (key.split('/')[1], text(key)) for key in _SHOT_TEXTS))
+        self._presenters.append(self._shotPanel)
         if self._battleFiles is not None:
             self._presenters.append(FileButtonsPresenter(model.fileButtons, self._battleStore, self._battleFiles, hitsPanel, {
                 'save': text('file/save'), 'import': text('file/import'), 'imported': text('file/imported'), 'exported': text('file/exported'), 'failed': text('file/failed')}))
@@ -95,6 +110,7 @@ class HitsView(ViewComponent):
         for presenter in reversed(self._presenters):
             presenter.fini()
         self._presenters = []
+        self._shotPanel = None
         summary('while the screen was open')
         self._battleStore = None
         self._battleFiles = None
