@@ -30,6 +30,8 @@ flat. The explosion radius is not drawn: about 10 m for a big gun, it covers the
 
 A point is the middle of the shell's way through the part the server sends, and the shell's direction is along that
 way, like the Battle Hits mod places its hits: data only, so a point does not wait for the vehicle's collision model.
+At the first point the direction is the shell's exact one from its tracer when the hit has it (Hit.shotDirection):
+the server packs the way to 1/255 of the part on each axis, a degree or so off along a short way.
 The model is needed only for the armor's normal at a last ricochet; it comes a few frames after the vehicle, so
 without it the lines are drawn again after _NORMAL_RETRY seconds, up to _NORMAL_TRIES times, and then without the
 ricochet's way out.
@@ -154,6 +156,9 @@ def _hitWay(hit, compoundModel, collisions):
         points = points[:1]
     if not points:
         return [], None, False
+    if hit.shotDirection:
+        point, matrix, position, _ = points[0]
+        points[0] = (point, matrix, position, _unit(matrix.applyVector(Math.Vector3(*hit.shotDirection))))
     pieces = [(points[0][2] - points[0][3] * _LEAD, points[0][2])]
     waitsNormal = False
     for previous, current in zip(points, points[1:]):

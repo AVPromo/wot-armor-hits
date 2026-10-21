@@ -10,18 +10,25 @@
 - HitPoint: one point a shell hit (a shell that ricochets or goes through spaced armor hits more than one): the
   vehicle part and the shell's way through its armor, as the server sends it (DamageFromShotDecoder.parseHitPoint).
   The points are in the part's own space, so they are drawn on the same vehicle with the same modules, whatever the
-  turret and the gun angles: the hit keeps the other vehicle's compact descriptor for that.
+  turret and the gun angles: the hit keeps the other vehicle's compact descriptor for that. The server packs a
+  point to 1/255 of the part's size on each axis, so the direction along a short way is off by a degree or so: the
+  hit keeps the shell's exact direction at its first point too (Hit.shotDirection), from the shell's tracer.
 - HitCollector: adds the hits of the battle the player is in to its Battle in the BattleStore: receivedHits (the
   player's vehicle was hit) and dealtHits (the player's vehicle hit another one). The client knows the hits on the
-  vehicles it sees, so all the player's hits are there, and the hits on the player's vehicle. The client's battle
-  events (PlayerAvatar.onBattleEvents, the source of its damage log) add the crits, a premium shell and the blocked
-  damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after; the client's damage info
-  of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) adds the modules and crew the shell damaged, the same
-  way. The client tells which modules it damaged only on the player's own vehicle. The distance is between the two
+  vehicles it sees, so all the player's hits are there, and the hits on the player's vehicle; not those on a
+  vehicle already destroyed (a wreck takes no damage, the server tells it as pierced without damage). The client's
+  battle events (PlayerAvatar.onBattleEvents, the source of its damage log) add the crits, a premium shell and the
+  blocked damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after; the client's damage
+  info of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) adds the modules and crew the shell damaged, the
+  same way. The client tells which modules it damaged only on the player's own vehicle. The distance is between the two
   vehicles when the hit comes, when the client sees the shooter. A splash keeps where the shell burst, in the hit
-  vehicle's chassis space (like the points), even when it burst on the ground nearby.
+  vehicle's chassis space (like the points), even when it burst on the ground nearby. The shooter's tracer
+  (PlayerAvatar.showTracer: where the shell starts, its velocity and gravity, as floats) gives the shell's direction
+  at the first point: the tracer whose way passes the point nearest, within _TRACER_MISS metres; none when the client
+  had no such tracer.
 """
 import logging
+import math
 
 import BigWorld
 import Math
@@ -50,8 +57,9 @@ class HitResult(object):
     ALL = (DAMAGE, BLOCKED, RICOCHET, NO_DAMAGE)
 
 
-# Decimals of the hit point coordinates in metres: the server sends them to about 1 cm.
+# Decimals of the hit point coordinates in metres: the server sends them to about 1 cm; of a direction's.
 _POINT_DECIMALS = 3
+_DIRECTION_DECIMALS = 4
 
 
 class HitPoint(Record):
@@ -94,6 +102,8 @@ class Hit(Record):
         ('damagedDevices', ()), # what the shell did to the player's vehicle (received hits), in order (DamagedDevice)
         ('splashCenter', ()),   # (x, y, z) where a splash's shell burst, in metres in the hit vehicle's chassis space
                                 # (part 0 of the points); () when not known
+        ('shotDirection', ()),  # (x, y, z) unit direction of the shell at the first point, in that point's part space,
+                                # from the shell's tracer (exact, unlike the points); () when not known
     )
     NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice}
     __slots__ = tuple(name for name, _ in FIELDS)
@@ -172,6 +182,10 @@ _EXTRA_DEVICES = dict((extra, device) for device, extras in DEVICE_TANKMAN_NAMES
 # The server tells the event and the client shows the shell hit at about the same time, either one first (the hit
 # waits for the shell's flight): an event and a hit of the same vehicle within this many seconds are one hit.
 _PAIRING_TIME = 1.5
+# Seconds a shooter's tracer is kept for its hit (an artillery shell flies a few seconds); metres its way may pass the
+# hit point by (the point is packed to about 1-4 cm, the vehicle moves) and still be the hit's shell.
+_TRACER_TIME = 10.0
+_TRACER_MISS = 2.5
 
 
 def _withInfo(hit, info):
@@ -180,6 +194,16 @@ def _withInfo(hit, info):
     if devices:
         info = dict(info, damagedDevices=hit.damagedDevices + devices)
     return hit.replace(**info)
+
+
+def _partMatrix(vehicle, part):
+    # The world matrix of the node the client puts the hit effects of the vehicle's part on (its points' space); None.
+    try:
+        nodeName = TankPartNames.getActualNodeNameByPartName(TankPartIndexes.getName(part))
+        return Math.Matrix(vehicle.appearance.compoundModel.node(nodeName))
+    except Exception:
+        _logger.debug('hits: no node of part %s of vehicle %s', part, vehicle.id, exc_info=True)
+        return None
 
 
 def _distance(vehicleID, otherID):
@@ -226,12 +250,15 @@ class HitCollector(object):
         self._lastHits = {}
         # {(side field, other vehicle id): [(server time, info)]}: events that came before their hit.
         self._pendingEvents = {}
+        # {shooter id: [(server time, start, velocity, gravity)]}: the shells in flight, their tracers.
+        self._tracers = {}
 
     def install(self):
         for name in ('showDamageFromShot', 'showDamageFromExplosion'):
             self._wrap(Vehicle, name, self._onVehicleHit)
         self._wrap(PlayerAvatar, 'onBattleEvents', self._onBattleEvents)
         self._wrap(PlayerAvatar, 'showVehicleDamageInfo', self._onDamageInfo)
+        self._wrap(PlayerAvatar, 'showTracer', self._onTracer)
         g_playerEvents.onAvatarBecomeNonPlayer += self._reset
 
     def uninstall(self):
@@ -244,6 +271,7 @@ class HitCollector(object):
     def _reset(self, *args):
         self._lastHits = {}
         self._pendingEvents = {}
+        self._tracers = {}
 
     def _wrap(self, cls, name, handler):
         if name not in cls.__dict__:
@@ -273,11 +301,17 @@ class HitCollector(object):
             field, otherID = 'dealtHits', vehicle.id
         else:
             return
+        # A shell on a destroyed vehicle does nothing: not a hit. The shell that destroys it comes while it is alive.
+        if not vehicle.isAlive():
+            _logger.info('hits: %s of vehicle %s on a destroyed vehicle: skipped', field, otherID)
+            return
         battle = self._store.getBattle(player.arenaUniqueID)
         if battle is None:
             return
         if name == 'showDamageFromShot':
             hit = self._shotHit(vehicle, args, kwargs)
+            if hit.points:
+                hit = hit.replace(shotDirection=self._shotDirection(vehicle, attackerID, hit.points[0]))
             if field == 'dealtHits':
                 hit = hit.replace(isGoldShell=self._ownShellIsGold(player, hit.shellType))
         else:
@@ -327,6 +361,54 @@ class HitCollector(object):
                     points.append(HitPoint(part=part, start=_vector(start), end=_vector(end), effect=effect))
         return Hit(damage=_argument(args, kwargs, 4, 'damage') or 0, shellType=shellType, hitEffects=tuple(effects),
                    points=tuple(points))
+
+    def _onTracer(self, name, avatar, args, kwargs):
+        # A shell in flight, not one going on after a ricochet: where it starts and its velocity.
+        if _argument(args, kwargs, 2, 'isRicochet'):
+            return
+        now = BigWorld.serverTime()
+        for shooterID in list(self._tracers):
+            tracers = [tracer for tracer in self._tracers[shooterID] if now - tracer[0] <= _TRACER_TIME]
+            if tracers:
+                self._tracers[shooterID] = tracers
+            else:
+                del self._tracers[shooterID]
+        tracer = (now, Math.Vector3(_argument(args, kwargs, 7, 'refStartPoint')),
+                  Math.Vector3(_argument(args, kwargs, 8, 'velocity')), _argument(args, kwargs, 9, 'gravity') or 0.0)
+        self._tracers.setdefault(_argument(args, kwargs, 0, 'shooterID'), []).append(tracer)
+
+    def _shotDirection(self, vehicle, attackerID, point):
+        # The shell's direction at the point in the point's part space, from the attacker's tracer whose way passes
+        # the point nearest (within _TRACER_MISS); () without one. The shell flies on a parabola: its horizontal
+        # velocity stays, gravity bends it down.
+        matrix = _partMatrix(vehicle, point.part)
+        if matrix is None:
+            return ()
+        start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
+        target = matrix.applyPoint((start + end) * 0.5)
+        best = None
+        for _, origin, velocity, gravity in self._tracers.get(attackerID, ()):
+            flat = math.hypot(velocity.x, velocity.z)
+            if flat < 1e-3:
+                continue
+            flight = math.hypot(target.x - origin.x, target.z - origin.z) / flat
+            position = origin + velocity * flight - Math.Vector3(0.0, gravity * flight * flight * 0.5, 0.0)
+            miss = (target - position).length
+            if best is None or miss < best[0]:
+                best = (miss, Math.Vector3(velocity.x, velocity.y - gravity * flight, velocity.z))
+        if best is None or best[0] > _TRACER_MISS:
+            _logger.info('hits: no tracer of vehicle %s for its hit (nearest %s m)', attackerID,
+                         '%.2f' % best[0] if best is not None else None)
+            return ()
+        matrix.invert()
+        direction = matrix.applyVector(best[1])
+        direction.normalise()
+        way = end - start
+        if way.length > 1e-6:
+            way.normalise()
+            _logger.info('hits: tracer of vehicle %s: %.2f m from the hit point, %.2f degrees from the hit points\' '
+                         'way', attackerID, best[0], math.degrees(math.acos(max(-1.0, min(1.0, way.dot(direction))))))
+        return tuple(round(value, _DIRECTION_DECIMALS) for value in (direction.x, direction.y, direction.z))
 
     def _onBattleEvents(self, name, avatar, args, kwargs):
         for event in _argument(args, kwargs, 0, 'events') or ():

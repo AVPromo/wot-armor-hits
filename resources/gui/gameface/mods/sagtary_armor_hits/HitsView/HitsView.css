@@ -1327,6 +1327,60 @@ body {
     color: var(--color-general-tertiary);
 }
 
+/* The modules and crew the shot damaged: rows of up to four tiles, centred, the crew under a line. A tile is the
+   battle damage panel's icon (46 x 40) with the damaged parts' or crew members' names under it in their state's color. */
+.shotPanel__devices {
+    display: flex;
+    flex-direction: column;
+    padding: 8rem 12rem 0 12rem;
+}
+
+.shotPanel__crew {
+    margin: 0 12rem;
+    padding: 8rem 0 0 0;
+    border-top: 1rem solid rgba(255, 255, 255, 0.08);
+}
+
+.shotPanel__deviceRow {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+}
+
+.shotPanel__device {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 76rem;
+    margin: 0 2rem 8rem 2rem;
+    flex-shrink: 0;
+}
+
+.shotPanel__deviceIcon {
+    width: 46rem;
+    height: 40rem;
+    margin-bottom: 2rem;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: 46rem 40rem;
+}
+
+.shotPanel__deviceName {
+    width: 76rem;
+    font-size: 12rem;
+    line-height: 1.25;
+    text-align: center;
+}
+
+.shotPanel__deviceState__critical,
+.shotPanel__deviceState__wounded {
+    color: #f2a93b;
+}
+
+.shotPanel__deviceState__destroyed {
+    color: #f0603f;
+}
+
 /* A value counted in the garage, not told by the battle. */
 .shotPanel__counted {
     border-bottom: 1rem dashed #6a7279;

@@ -488,6 +488,9 @@ function drawShotPanel() {
             head.appendChild(plate);
         }
         shotSections.appendChild(head);
+        if (section.kind === "crits") {
+            drawDevices(arrayItems(model.devices));
+        }
         arrayItems(section.rows).forEach((item) => {
             const row = element("div", "shotPanel__row");
             const rowValue = element("div", "shotPanel__rowValue");
@@ -497,6 +500,46 @@ function drawShotPanel() {
             shotSections.appendChild(row);
         });
     });
+}
+
+// The modules and crew the shot damaged, in the crits section: a tile per module kind or crew role, the battle damage
+// panel's icon at the worst state, under it a line per damaged part or crew member in its state's color (the text's
+// lines, "state<TAB>name"); rows of four, the crew in rows of its own under a line.
+function deviceTile(device) {
+    const tile = element("div", "shotPanel__device");
+    const icon = element("div", "shotPanel__deviceIcon");
+    icon.style.backgroundImage = `url(img://gui/maps/sagtary_armor_hits/modules/${device.icon}.png)`;
+    tile.appendChild(icon);
+    device.text.split("\n").forEach((line) => {
+        const [state, name] = line.split("\t");
+        tile.appendChild(element("div", `shotPanel__deviceName shotPanel__deviceState__${state}`, name));
+    });
+    return tile;
+}
+
+function deviceRows(className, devices) {
+    const box = element("div", className);
+    let row = null;
+    devices.forEach((device) => {
+        if (!row || row.childNodes.length === 4) {
+            row = element("div", "shotPanel__deviceRow");
+            box.appendChild(row);
+        }
+        row.appendChild(deviceTile(device));
+    });
+    return box;
+}
+
+function drawDevices(devices) {
+    const modules = devices.filter((device) => !device.isCrew);
+    const crew = devices.filter((device) => device.isCrew);
+    if (modules.length) {
+        shotSections.appendChild(deviceRows("shotPanel__devices", modules));
+    }
+    if (crew.length) {
+        shotSections.appendChild(deviceRows(modules.length ? "shotPanel__devices shotPanel__crew" : "shotPanel__devices",
+                                            crew));
+    }
 }
 
 function draw() {
@@ -513,7 +556,7 @@ function draw() {
 engine.whenReady.then(() => {
     const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.fileButtons", "model.overlayPanel",
         "model.scenePanel", "model.shotPanel",
-        "model.shotPanel.shooter", "model.shotPanel.target", "model.shotPanel.sections",
+        "model.shotPanel.shooter", "model.shotPanel.target", "model.shotPanel.sections", "model.shotPanel.devices",
         "model.shotPanel.shooter.modules", "model.shotPanel.target.modules"];
     const callbackIDs = paths.map((path) =>
         viewEnv.addDataChangedCallback(path, 0, true),

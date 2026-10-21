@@ -179,10 +179,44 @@ class ShotSectionModel(ViewModel):
         self._addArrayProperty('rows', Array())
 
 
+class ShotDeviceModel(ViewModel):
+    # A tile of the modules and crew section: the icon of the battle damage panel (gui/maps/sagtary_armor_hits/modules/
+    # <icon>.png: the kind and its state), a crew role or a module kind, and the lines of its damaged parts or crew
+    # members ('state<TAB>name', '\n' between).
+    __slots__ = ()
+
+    def __init__(self, properties=3, commands=0):
+        super(ShotDeviceModel, self).__init__(properties=properties, commands=commands)
+
+    def getIcon(self):
+        return self._getString(0)
+
+    def setIcon(self, value):
+        self._setString(0, value)
+
+    def getIsCrew(self):
+        return self._getBool(1)
+
+    def setIsCrew(self, value):
+        self._setBool(1, value)
+
+    def getText(self):
+        return self._getString(2)
+
+    def setText(self, value):
+        self._setString(2, value)
+
+    def _initialize(self):
+        super(ShotDeviceModel, self)._initialize()
+        self._addStringProperty('icon', '')
+        self._addBoolProperty('isCrew', False)
+        self._addStringProperty('text', '')
+
+
 class ShotPanelModel(ViewModel):
     __slots__ = ()
 
-    def __init__(self, properties=8, commands=0):
+    def __init__(self, properties=9, commands=0):
         super(ShotPanelModel, self).__init__(properties=properties, commands=commands)
 
     def getIsVisible(self):
@@ -244,6 +278,17 @@ class ShotPanelModel(ViewModel):
     def setIsGoldShell(self, value):
         self._setBool(7, value)
 
+    def getDevices(self):
+        # The modules and crew section's tiles: the module kinds, then the crew; none when not known.
+        return self._getArray(8)
+
+    def setDevices(self, value):
+        self._setArray(8, value)
+
+    @staticmethod
+    def getDevicesType():
+        return ShotDeviceModel
+
     def _initialize(self):
         super(ShotPanelModel, self)._initialize()
         self._addBoolProperty('isVisible', False)
@@ -254,3 +299,4 @@ class ShotPanelModel(ViewModel):
         self._addNumberProperty('tooltipDecoratorId', 0)
         self._addStringProperty('shellText', '')
         self._addBoolProperty('isGoldShell', False)
+        self._addArrayProperty('devices', Array())
