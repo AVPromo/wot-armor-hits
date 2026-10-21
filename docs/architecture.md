@@ -59,6 +59,7 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/battle_selector.py`           | presenter of the battle selector: fills its model from the `BattleStore`, keeps the selected battle (`onBattleSelected`) |
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
+| `views/hits/hangar_scene.py`              | presenter of the hangar camera while the screen is open: its collisions off and its pitch limits widened, so it goes under the floor and looks from below; put back when the screen closes |
 | `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way as thin tubes in the 3D scene over the hangar vehicle |
 | `views/hits/scene_lines.py`               | dashed tubes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay |
 | `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |

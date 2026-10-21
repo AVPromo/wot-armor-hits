@@ -28,6 +28,7 @@ from gui.mods.sagtary_armor_hits.trace import summary
 from gui.mods.sagtary_armor_hits.views.hits.armor_tooltip import ArmorTooltipPresenter
 from gui.mods.sagtary_armor_hits.views.hits.battle_selector import BattleSelectorPresenter
 from gui.mods.sagtary_armor_hits.views.hits.file_buttons import FileButtonsPresenter
+from gui.mods.sagtary_armor_hits.views.hits.hangar_scene import HangarScenePresenter
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import HangarVehiclePresenter
 from gui.mods.sagtary_armor_hits.views.hits.hit_lines import HitLinesPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
@@ -86,6 +87,8 @@ class HitsView(ViewComponent):
         self._presenters.append(hitsPanel)
         # The hangar shows the vehicle the hits panel shows the hits on.
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
+        # The hangar around it hidden, the camera free to look from under it.
+        self._presenters.append(HangarScenePresenter())
         # The scene panel's choices: which lines are drawn over that vehicle, the shooter view.
         scenePanel = ScenePanelPresenter(model.scenePanel, {
             'current': text('lines/current'), 'shooter': text('camera/shooter'),
