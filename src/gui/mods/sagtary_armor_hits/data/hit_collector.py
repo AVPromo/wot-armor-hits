@@ -10,7 +10,8 @@ without damage).
 - Vehicle.showDamageFromShot, showDamageFromExplosion: a hit. The client decodes its points
   (DamageFromShotDecoder.parseHitPoint, by the parts of the vehicle's collision model); the hit gets the other
   vehicle (player, compact descriptor) from the arena, the distance between the two vehicles when the client sees
-  the shooter, the battle time. A splash keeps where the shell burst, in the hit vehicle's chassis space (like the
+  the shooter, the battle time, the hit vehicle's pose (its turret, gun, hull on its chassis and steered wheels, as
+  the client shows them). A splash keeps where the shell burst, in the hit vehicle's chassis space (like the
   points), even when it burst on the ground nearby. The premium flag of the player's own shell is the player's
   current shell's.
 - PlayerAvatar.onBattleEvents, showVehicleDamageInfo: more about the hit of the same vehicle (hit_parser.HitPairing).
@@ -65,6 +66,25 @@ def _partMatrix(vehicle, part):
         return Math.Matrix(vehicle.appearance.compoundModel.node(nodeName))
     except Exception:
         _logger.debug('hits: no node of part %s of vehicle %s', part, vehicle.id, exc_info=True)
+        return None
+
+
+def _vehiclePose(vehicle):
+    # The vehicle's pose as the client shows it; None without its model. The hull's matrix in the chassis space only
+    # for a vehicle whose hull moves on its chassis.
+    if getattr(vehicle, 'appearance', None) is None:
+        return None
+    try:
+        descriptor, hullMatrix = vehicle.typeDescriptor, None
+        if descriptor.hasSiegeMode or descriptor.hasHydraulicChassis or descriptor.isPitchHullAimingAvailable:
+            chassis, hull = _partMatrix(vehicle, TankPartIndexes.CHASSIS), _partMatrix(vehicle, TankPartIndexes.HULL)
+            if chassis is not None and hull is not None:
+                chassis.invert()
+                hull.postMultiply(chassis)
+                hullMatrix = hull
+        return hit_parser.vehiclePose(vehicle.getAimParams(), hullMatrix, vehicle.wheelsSteeringSmoothed)
+    except Exception:
+        _logger.exception('hits: no pose of vehicle %s', vehicle.id)
         return None
 
 
@@ -154,7 +174,7 @@ class HitCollector(object):
         descriptor = arenaVehicle.get('vehicleType')
         hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',
                           vehicleDescriptor=compactDescriptor(descriptor),
-                          distance=_distance(vehicle.id, attackerID))
+                          distance=_distance(vehicle.id, attackerID), vehiclePose=_vehiclePose(vehicle))
         key, now = (field, otherID), BigWorld.serverTime()
         hit = self._pairing.withPending(key, hit, now)
         hits = getattr(battle, field) + (hit,)

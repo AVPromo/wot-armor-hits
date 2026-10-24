@@ -56,6 +56,13 @@ def effectsText(effects):
     return '[%s]' % ', '.join(_EFFECT_NAMES.get(effect, str(effect)) for effect in effects)
 
 
+def poseText(pose):
+    if pose is None:
+        return 'none'
+    return 'turret %s, gun %s, hull %s %s, wheels %s' % (pose.turretYaw, pose.gunPitch, pose.hullPosition or None,
+                                                         pose.hullRotation or None, pose.wheelSteeringAngles or None)
+
+
 def hitText(hit):
     # All the hit's data as recorded.
     points = ', '.join('part %s %s hit type %s %s-%s' % (
@@ -63,8 +70,9 @@ def hitText(hit):
         _EFFECT_NAMES.get(point.hitTypeCode, point.hitType), point.start, point.end) for point in hit.points)
     devices = ', '.join('%s %s' % (device.extra or device.device, device.code) for device in hit.damagedDevices)
     return ('time %.2f, vehicle %s, player %s, shell %s%s %s mm, damage %s, crits %s, effects %s, splash %s, '
-            'distance %s, compact descriptor %s, points [%s], devices [%s], splash center %s, shot direction %s') % (
+            'distance %s, compact descriptor %s, points [%s], devices [%s], splash center %s, shot direction %s, '
+            'pose [%s]') % (
         hit.time, hit.vehicleId, hit.playerName, hit.shellType, ' gold' if hit.isGoldShell else '', hit.caliber,
         hit.damage, hit.critsCount, effectsText(hit.hitEffects), hit.isSplash, hit.distance,
         'yes' if hit.vehicleDescriptor else 'no', points, devices, hit.splashCenter or None,
-        hit.shotDirection or None)
+        hit.shotDirection or None, poseText(hit.vehiclePose))

@@ -18,6 +18,9 @@ hit_collector.py in battle.
   the other vehicle's compact descriptor for that. The server packs a point to 1/255 of the part's size on each
   axis, so the direction along a short way is off by a degree or so: the hit keeps the shell's exact direction at
   its first point too (Hit.shotDirection), from the shell's tracer.
+- VehiclePose: how the hit vehicle stood at the hit, as the client showed it: its turret and gun, its hull on its
+  chassis when the hull moves on it, its steered wheels. Each point is in its own part's space, so it is on the same
+  place of the part in any pose; the way between the points on two parts and the armor along it are as the pose was.
 """
 import logging
 
@@ -92,6 +95,21 @@ class DamagedDevice(Record):
     __slots__ = tuple(name for name, _ in FIELDS)
 
 
+class VehiclePose(Record):
+    FIELDS = (
+        ('turretYaw', 0.0),     # radians the turret is turned on the hull (Vehicle.getAimParams)
+        ('gunPitch', 0.0),      # radians of the gun's pitch; below 0 the gun is raised, as the client has it
+        ('hullPosition', ()),   # (x, y, z) of the hull in metres in the chassis space, for a vehicle whose hull moves
+                                # on its chassis (siege mode, hydraulic chassis, hull pitch aiming: Strv 103, ...); ()
+                                # for the others
+        ('hullRotation', ()),   # (yaw, pitch, roll) of the hull in radians in the chassis space, for the same vehicles
+        ('wheelSteeringAngles', ()),
+                                # radians each steered wheel of a wheeled vehicle is turned, in the client's order
+                                # (Vehicle.wheelsSteeringSmoothed); () for a tracked vehicle
+    )
+    __slots__ = tuple(name for name, _ in FIELDS)
+
+
 class Hit(Record):
     FIELDS = (
         ('time', 0.0),          # seconds since the battle started (the arena's battle period)
@@ -113,8 +131,9 @@ class Hit(Record):
         ('shotDirection', ()),  # (x, y, z) unit direction of the shell at the first point of vehiclePoints, in its part
                                 # space,
                                 # from the shell's tracer (exact, unlike the points); () when not known
+        ('vehiclePose', None),  # how the hit vehicle stood at the hit (VehiclePose); None when not known
     )
-    NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice}
+    NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice, 'vehiclePose': VehiclePose}
     __slots__ = tuple(name for name, _ in FIELDS)
 
     @property

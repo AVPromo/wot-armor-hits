@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Record: a plain data object with named fields and their defaults, the base of Battle and Hit.
 
-A record class lists its fields in FIELDS as (name, default) and, in NESTED, the fields that hold a tuple of other
-records ({name: record class}). A new field is a new line in FIELDS with a default, so the code that makes or reads a
-record keeps working, and a record read from a file without the field gets the default.
+A record class lists its fields in FIELDS as (name, default) and, in NESTED, the fields that hold other records
+({name: record class}): a tuple of them, or one (None for none). A new field is a new line in FIELDS with a default,
+so the code that makes or reads a record keeps working, and a record read from a file without the field gets the
+default.
 """
 from collections import OrderedDict
 
@@ -29,7 +30,9 @@ class Record(object):
             if name not in data:
                 continue
             value = data[name]
-            if name in cls.NESTED:
+            if name in cls.NESTED and isinstance(value, dict):
+                value = cls.NESTED[name].fromDict(value)
+            elif name in cls.NESTED and value is not None:
                 value = tuple(cls.NESTED[name].fromDict(item) for item in value or () if isinstance(item, dict))
             elif isinstance(value, list):
                 value = tuple(value)
@@ -40,7 +43,9 @@ class Record(object):
         data = OrderedDict()
         for name, _ in self.FIELDS:
             value = getattr(self, name)
-            if name in self.NESTED:
+            if isinstance(value, Record):
+                value = value.toDict()
+            elif name in self.NESTED and value is not None:
                 value = [item.toDict() for item in value]
             elif isinstance(value, tuple):
                 value = list(value)

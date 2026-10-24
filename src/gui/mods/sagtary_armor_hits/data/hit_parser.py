@@ -12,6 +12,7 @@ and gives it here, so the same rules can make the hits from any source of the sa
   damage log) and its damage info of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) tell about a hit:
   crits, a premium shell, the modules and crew the shell damaged.
 - HitPairing: the events and the hit of the same vehicle within _PAIRING_TIME before or after it are one hit.
+- vehiclePose: the hit vehicle's pose from what the client shows of it.
 - Tracers, shotDirection: the shooter's tracer (PlayerAvatar.showTracer: where the shell starts, its velocity and
   gravity, as floats) gives the shell's direction at the first point: the tracer whose way passes the point nearest,
   within _TRACER_MISS metres; none when there was no such tracer.
@@ -24,15 +25,16 @@ from BattleFeedbackCommon import BATTLE_EVENT_TYPE, NONE_SHELL_TYPE
 from constants import SHELL_TYPES, SHELL_TYPES_LIST
 from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
 
-from gui.mods.sagtary_armor_hits.data.hits import DamagedDevice, Hit, HitPoint, effectName
+from gui.mods.sagtary_armor_hits.data.hits import DamagedDevice, Hit, HitPoint, VehiclePose, effectName
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
 # Decimals of the hit point coordinates in metres: the server sends them to about 1 cm; of a direction's; of a caliber
-# in millimetres: the server sends it to 0.1 mm.
+# in millimetres: the server sends it to 0.1 mm; of an angle in radians.
 _POINT_DECIMALS = 3
 _DIRECTION_DECIMALS = 4
 _CALIBER_DECIMALS = 1
+_ANGLE_DECIMALS = 4
 # The client's battle events (BattleFeedbackCommon.BATTLE_EVENT_TYPE) that tell more about a hit: the side of the
 # hit; the event's targetID is the other vehicle (the target of the player's hit, the attacker of a received one).
 _EVENT_SIDES = {
@@ -93,6 +95,21 @@ def shotHit(damage, decodedPoints):
 def splashHit(damage, center):
     # A high explosive splash; center: where it burst in the hit vehicle's chassis space, () when not known.
     return Hit(shellType=SHELL_TYPES.HIGH_EXPLOSIVE, damage=damage or 0, isSplash=True, splashCenter=center)
+
+
+def vehiclePose(aimParams, hullMatrix, wheelSteeringAngles):
+    # The hit vehicle's pose. aimParams: (turret yaw, gun pitch) as Vehicle.getAimParams gives them; hullMatrix: the
+    # hull's matrix in the chassis space (Math.Matrix), None for a vehicle whose hull does not move on its chassis;
+    # wheelSteeringAngles: of the steered wheels.
+    turretYaw, gunPitch = aimParams
+    hullPosition, hullRotation = (), ()
+    if hullMatrix is not None:
+        hullPosition = vector(hullMatrix.translation)
+        hullRotation = tuple(round(value, _ANGLE_DECIMALS)
+                             for value in (hullMatrix.yaw, hullMatrix.pitch, hullMatrix.roll))
+    return VehiclePose(turretYaw=round(turretYaw, _ANGLE_DECIMALS), gunPitch=round(gunPitch, _ANGLE_DECIMALS),
+                       hullPosition=hullPosition, hullRotation=hullRotation,
+                       wheelSteeringAngles=tuple(round(angle, _ANGLE_DECIMALS) for angle in wheelSteeringAngles or ()))
 
 
 def eventSide(eventType):
