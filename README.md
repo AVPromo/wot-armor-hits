@@ -43,7 +43,8 @@ Work in progress. Now the mod:
 - `showButtonInModsMenu`: `true` puts the button into the ModsList API mods list when ModsList API is installed;
   `false` keeps it in the hangar footer always. Takes effect when the game starts again.
 - `showFriendlyFire`: `true` shows the hits on allies and of allies in the hits list (they do no damage).
-- `debug`: `true` writes the debug record of every battle into `mods/sagtary_armor_hits/debug`.
+- `debug`: `true` writes the debug record of every battle into `mods/sagtary_armor_hits/debug` and the mod's detailed
+  lines into `game.log`; `false` leaves there only the start, the battle files, warnings and errors.
 - `autoSaveBattles`: `true` saves every battle played (not a replay) to its file in `mods/sagtary_armor_hits/hits` when
   you leave the battle, as the save button does.
 

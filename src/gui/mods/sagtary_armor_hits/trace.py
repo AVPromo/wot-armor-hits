@@ -7,12 +7,18 @@ same name; a quiet call (the armor tooltip's ticks, every shell hit in battle) i
 the counts since the last summary and starts again: the hits screen logs one when it opens (the battle's calls) and
 one when it closes. The checks of a hit log with the prefix "check:" (shot_panel.py, hit_lines.py); hitText and
 modulesText are their texts of a hit and of a vehicle's modules.
+
+The mod's info lines are written only with the debug setting (setVerbose); warnings and errors always. A few lines go
+to every log through mainLogger: the start, the battle files written, read and deleted.
 """
 import logging
 
 import BigWorld
 
 _logger = logging.getLogger('sagtary.armor_hits')
+# Its own level: its info lines pass whatever the level of the mod's logger is.
+mainLogger = logging.getLogger('sagtary.armor_hits.main')
+mainLogger.setLevel(logging.INFO)
 
 # {name: calls since the last summary}, {name: BigWorld.time() of the last call}
 _counts = {}
@@ -22,13 +28,17 @@ _EFFECT_NAMES = {0: 'piercedNoDamage', 1: 'ricochet', 2: 'finalRicochet', 3: 'no
                  5: 'critical', 6: 'piercedDeviceDamaged'}
 
 
+def setVerbose(isOn):
+    _logger.setLevel(logging.INFO if isOn else logging.WARNING)
+
+
 def calls(name, details='', quiet=False):
     now = BigWorld.time()
     count = _counts.get(name, 0) + 1
     _counts[name] = count
     last = _lastTimes.get(name)
     _lastTimes[name] = now
-    if quiet:
+    if quiet or not _logger.isEnabledFor(logging.INFO):
         return
     since = '+%.0f ms' % ((now - last) * 1000) if last is not None else 'first'
     _logger.info('calls: %s #%d (%s)%s', name, count, since, ': ' + details if details else '')

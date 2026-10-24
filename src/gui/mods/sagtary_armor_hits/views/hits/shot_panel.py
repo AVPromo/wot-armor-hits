@@ -521,7 +521,7 @@ class ShotPanelPresenter(object):
             if len(kinds) > 1 and bool(shell.isGold) != bool(hit.isGoldShell):
                 mismatches.append('the shell %s is not of the hit premium flag %s' % (shell.name, hit.isGoldShell))
         for mismatch in mismatches:
-            _logger.warning('check: MISMATCH hit #%s %s: %s', number, side, mismatch)
+            _logger.info('check: MISMATCH hit #%s %s: %s', number, side, mismatch)
 
     def _sections(self, hit, gunShot, armor):
         texts = self._texts

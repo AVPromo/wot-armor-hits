@@ -24,6 +24,7 @@ import time
 from collections import OrderedDict
 
 from gui.mods.sagtary_armor_hits.data.battles import Battle
+from gui.mods.sagtary_armor_hits.trace import mainLogger
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -72,7 +73,7 @@ def writeBattles(path, battles, appVersion):
             f.write(content)
     except (IOError, OSError, TypeError, ValueError) as error:
         raise BattleFileError('cannot write %s: %s' % (path, error))
-    _logger.info('battle file: %d battles written to %s', len(battles), path)
+    mainLogger.info('battle file: %d battles written to %s', len(battles), path)
 
 
 def readBattles(path):
@@ -125,8 +126,8 @@ class BattleFiles(object):
                 battles.extend(readBattles(path))
             except BattleFileError as error:
                 errors.append((path, error))
-        _logger.info('battle file: %d battles read from %d of %d files in %s', len(battles),
-                     len(paths) - len(errors), len(paths), self._folder)
+        mainLogger.info('battle file: %d battles read from %d of %d files in %s', len(battles),
+                        len(paths) - len(errors), len(paths), self._folder)
         return battles, errors
 
     def deleteAll(self):
@@ -138,5 +139,6 @@ class BattleFiles(object):
                 os.remove(path)
             except OSError as error:
                 errors.append(BattleFileError('cannot delete %s: %s' % (path, error)))
-        _logger.info('battle file: %d of %d files deleted in %s', len(paths) - len(errors), len(paths), self._folder)
+        mainLogger.info('battle file: %d of %d files deleted in %s', len(paths) - len(errors), len(paths),
+                        self._folder)
         return errors
