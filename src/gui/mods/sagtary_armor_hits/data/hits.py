@@ -59,6 +59,8 @@ class HitPoint(Record):
         ('end', ()),            # (x, y, z) of the shell's way behind the armor
         ('effect', ''),         # what the shell did there: a constants.VEHICLE_HIT_EFFECT name (ARMOR_PIERCED, ...),
                                 # the code as text when the client has no name for it
+        ('hitType', ''),        # the point's hit type the server sends besides the effect (in its params), by the same
+                                # names: ARMOR_PIERCED, ARMOR_NOT_PIERCED, ...; '' when not known
     )
     __slots__ = tuple(name for name, _ in FIELDS)
 
@@ -66,6 +68,11 @@ class HitPoint(Record):
     def effectCode(self):
         # The constants.VEHICLE_HIT_EFFECT code of the effect, None when not known.
         return effectCode(self.effect)
+
+    @property
+    def hitTypeCode(self):
+        # The constants.VEHICLE_HIT_EFFECT code of the hit type, None when not known.
+        return effectCode(self.hitType)
 
     @property
     def isOnVehiclePart(self):
@@ -93,6 +100,7 @@ class Hit(Record):
                                 # compact descriptor (type and modules), hex; '' when not known
         ('playerName', ''),     # the other vehicle's player
         ('shellType', ''),      # the shell kind, a constants.SHELL_TYPES name: ARMOR_PIERCING, HIGH_EXPLOSIVE, ...
+        ('caliber', 0.0),       # the shell's caliber in millimetres, as the hit points tell it; 0 when not known
         ('damage', 0),          # hit points the hit took
         ('isSplash', False),    # a high explosive splash nearby, not a hit on the armor
         ('critsCount', 0),      # modules and crew the hit damaged, as the client's damage log counts them
