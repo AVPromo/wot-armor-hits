@@ -71,16 +71,17 @@ class HitItemModel(ViewModel):
     def setDamage(self, value):
         self._setNumber(8, value)
 
-    def getCritsCount(self):
-        return self._getNumber(9)
-
-    def setCritsCount(self, value):
-        self._setNumber(9, value)
-
     def getIsGoldShell(self):
-        return self._getBool(10)
+        return self._getBool(9)
 
     def setIsGoldShell(self, value):
+        self._setBool(9, value)
+
+    def getHasCrits(self):
+        # The hit damaged modules or crew.
+        return self._getBool(10)
+
+    def setHasCrits(self, value):
         self._setBool(10, value)
 
     def _initialize(self):
@@ -94,8 +95,8 @@ class HitItemModel(ViewModel):
         self._addStringProperty('shellText', '')
         self._addStringProperty('shellName', '')
         self._addNumberProperty('damage', 0)
-        self._addNumberProperty('critsCount', 0)
         self._addBoolProperty('isGoldShell', False)
+        self._addBoolProperty('hasCrits', False)
 
 
 class HitFilterModel(ViewModel):

@@ -59,7 +59,7 @@ def _fillHit(item, number, hit):
         item.setShellText(clientText(_SHELL_TEXT_KEY % hit.shellType) or '')
         item.setShellName(clientText(_SHELL_NAME_KEY % hit.shellType) or '')
     item.setDamage(hit.damage)
-    item.setCritsCount(hit.critsCount)
+    item.setHasCrits(hit.critsCount > 0)
     item.setIsGoldShell(hit.isGoldShell)
 
 

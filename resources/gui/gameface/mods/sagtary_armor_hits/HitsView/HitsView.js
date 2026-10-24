@@ -266,13 +266,13 @@ function drawHitsPanel() {
         row.appendChild(element("div", "hitsPanel__time", hit.time));
         // Then the order of the client's damage log: damage (none when the hit took none), result, shell, class,
         // vehicle; the player last.
-        // Like the client's log: the damage, or "xN" crits for a hit on modules without damage.
-        let damage = hit.damage ? String(hit.damage) : "";
-        if (!hit.damage && hit.critsCount) {
-            damage = `x${hit.critsCount}`;
-        }
-        row.appendChild(element("div", "hitsPanel__damage", damage));
+        row.appendChild(element("div", "hitsPanel__damage", hit.damage ? String(hit.damage) : ""));
         row.appendChild(hitIcon(hit.result, side));
+        // The critical icon of a hit that damaged modules or crew; its place is kept on the others, so the columns
+        // stay in line.
+        const critical = hitIcon("critical", side);
+        critical.classList.toggle("hitsPanel__criticalNone", !hit.hasCrits);
+        row.appendChild(critical);
         const shell = element("div", "hitsPanel__shell", hit.shellText);
         shell.classList.toggle("hitsPanel__shellNone", !hit.shellText);
         shell.classList.toggle("hitsPanel__shellGold", Boolean(hit.isGoldShell));

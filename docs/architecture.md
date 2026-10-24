@@ -63,7 +63,7 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
 | `views/hits/hangar_scene.py`              | presenter of the hangar camera while the screen is open: its collisions off and its pitch limits widened, so it goes under the floor and looks from below; put back when the screen closes |
-| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way (`Way`: lead, pieces on, ricochet's way out, splash) in the 3D scene over the hangar vehicle |
+| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way (`Way`: lead, pieces on, ricochet's way out, splash) in the 3D scene over the hangar vehicle, turned to the hit's pose (turret yaw, gun pitch) first |
 | `views/hits/hit_way.py`                   | the look of a hit's way: a solid white line to the first point, white dashes after a ricochet or spaced armor, at the line's start a white dot and rings as a cone back towards the shooter |
 | `views/hits/scene_lines.py`               | shapes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay: tubes, dashed tubes (with gaps), spheres, rings |
 | `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
@@ -159,7 +159,10 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
 - the chosen hit is drawn in the 3D scene over that vehicle (`hit_lines.py`). The hit points are in the space of
   their parts (`DamageFromShotDecoder.parseHitPoint`: the part and the shell's way through it); a point is the middle
   of that way and the shell's direction is along it, like the Battle Hits mod does, put into the scene by the part's
-  node (the node the client puts the hit effects on). The vehicle's collision model is used only for the armor's
+  node (the node the client puts the hit effects on). Before that the hangar vehicle turns its turret and gun as the
+  hit's vehicle had them (`Hit.vehiclePose`), like the client's armor screen turns them, and the lines are drawn on
+  the next frame, when the nodes have the pose; without a chosen hit the vehicle goes back to the hangar's pose. The
+  vehicle's collision model is used only for the armor's
   normal at a last ricochet: it comes a few frames after the vehicle and answers with wrong points before that.
   When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
   the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
@@ -193,8 +196,8 @@ place on the page.
 
 The hits panel under the selector shows the hits of the selected battle: on the player's vehicle or by the player,
 the result filters with their counts, the chosen hit and the list (number and time, then the order of the client's damage log:
-damage (none when the hit took none, "xN" crits for a hit on modules without damage, like the client's log),
-result, shell kind (white plate, gold for a premium shell), vehicle class, vehicle; the player last). Its result icons are the mod's copies in
+damage (none when the hit took none),
+result, the critical icon for a hit with crits (no count), shell kind (white plate, gold for a premium shell), vehicle class, vehicle; the player last). Its result icons are the mod's copies in
 `gui/maps/sagtary_armor_hits/hits/`: the client's damage log icons (damage, critical, blocked) cut out of its battle
 atlas, and the mod's own ricochet (a dashed way off a plate, on a pink square) and no damage (the blocked shield in
 cyan, a dash inside), drawn in their style in the colors of the armor tooltip's results' texts. Its vehicle class icons are the client's damage log icons, taken from the

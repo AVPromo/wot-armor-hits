@@ -501,6 +501,10 @@ body {
     margin-left: 6rem;
 }
 
+.hitsPanel__criticalNone {
+    visibility: hidden;
+}
+
 .hitsPanel__vehicle {
     flex-grow: 1;
     flex-basis: 0;
@@ -688,11 +692,12 @@ body {
 }
 
 /* The hit results' icons, copied into the mod: the damage log's red and green damage, its yellow critical (the shot
-   panel's modules section) and its shield of a blocked hit, cut out of the atlas; the mod's ricochet and no damage,
+   panel's modules section, a hit with crits in the list) and its shield of a blocked hit, cut out of the atlas; the mod's ricochet and no damage,
    drawn in their style, in the colors of the armor tooltip's results' texts. */
 .hitIcon__damage__received,
 .hitIcon__damage__dealt,
 .hitIcon__critical__received,
+.hitIcon__critical__dealt,
 .hitIcon__blocked__received,
 .hitIcon__blocked__dealt,
 .hitIcon__ricochet__received,
@@ -711,7 +716,8 @@ body {
     background-image: url(img://gui/maps/sagtary_armor_hits/hits/damage_dealt.png);
 }
 
-.hitIcon__critical__received {
+.hitIcon__critical__received,
+.hitIcon__critical__dealt {
     background-image: url(img://gui/maps/sagtary_armor_hits/hits/critical.png);
 }
 

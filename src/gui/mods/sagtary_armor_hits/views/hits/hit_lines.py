@@ -16,6 +16,13 @@ vehicle presenter has asked for the vehicle, and the lines are drawn when the ha
 (HangarSpace.onVehicleChanged; the parts of the vehicle are in their places then). The lines are removed when the
 hangar starts to change the vehicle (onVehicleChangeStarted) and drawn again when the hits or the choices change.
 
+Before the lines are drawn, the hangar vehicle turns its turret and gun as the chosen hit's vehicle had them at the hit
+(Hit.vehiclePose), the way the client's armor screen turns them (armor_sub_presenter: the turret rotator, the gun's
+angle); without a chosen hit or its pose they go back to the hangar's own pose. A fixed turret or gun stays. The parts'
+nodes have the new pose from the next frame on, so the lines are drawn then. A point and the shell's direction are in
+their part's space and are drawn by the part's node: they turn with it. The other hits' lines are drawn in the chosen
+hit's pose.
+
 The way of a shell, from its points on the vehicle's own parts (Hit.vehiclePoints): a piece of _LEAD metres before
 the first point, along the shell's direction there; a piece to the next point after a ricochet or spaced armor,
 where the shell goes on (it hits the vehicle again, or its main armor behind the spaced one); after a ricochet that
@@ -63,6 +70,9 @@ _RICOCHET = 1.5
 _GROUND = 0.02
 _NORMAL_RETRY = 0.2
 _NORMAL_TRIES = 5
+# Radians a turret or a gun may be off a pose and be in it; the drawings that wait for the vehicle to take a pose.
+_POSE_EPS = 1e-4
+_POSE_TRIES = 2
 # The shooter view: the camera's distance to the hit point in metres and its flight in seconds.
 _SHOOTER_DISTANCE = 6.0
 _CAMERA_FLIGHT = 0.5
@@ -105,6 +115,40 @@ def _armorNormal(collisions, point):
     if distance < 0.0 or distance > (end - start).length + 0.01 or not 0.5 < Math.Vector3(normal).length < 1.5:
         return None
     return _unit(normal)
+
+
+def _setPose(entity, pose):
+    # Turns the hangar vehicle's turret and gun as a hit's vehicle had them (VehiclePose), or back to the hangar's own
+    # pose for None; whether one of them moved.
+    appearance = getattr(entity, 'appearance', None)
+    rotator = getattr(appearance, 'turretRotator', None) if appearance is not None else None
+    if rotator is None:
+        return False
+    gun, turretYaw = entity.typeDescriptor.gun, rotator.turretYaw
+    if pose is None:
+        appearance.rotateTurretForAnchor(None, 0.0)
+        gunMoved = appearance.rotateGunToDefault()
+    else:
+        if gun.staticTurretYaw is None:
+            rotator.start(pose.turretYaw, 0.0)
+        gunMoved = gun.staticPitch is None and appearance.rotateGunForAngle(pose.gunPitch)
+    return abs(rotator.turretYaw - turretYaw) > _POSE_EPS or bool(gunMoved)
+
+
+def _poseText(compoundModel):
+    # The turret's yaw on the hull and the gun's pitch on the turret as the parts' nodes have them.
+    nodes = [_partNode(compoundModel, part) for part in (TankPartIndexes.HULL, TankPartIndexes.TURRET,
+                                                           TankPartIndexes.GUN)]
+    if None in nodes:
+        return 'no nodes'
+    hull, turret, gun = nodes
+    hull.invert()
+    turret.postMultiply(hull)
+    turretOnHull = Math.Matrix(turret)
+    turret.invert()
+    gun.postMultiply(hull)
+    gun.postMultiply(turret)
+    return 'turret %.4f, gun %.4f' % (turretOnHull.yaw, gun.pitch)
 
 
 def _drawn(hit):
@@ -215,6 +259,7 @@ class HitLinesPresenter(object):
         # The next drawing while the collision model has not come, and how many were done for that.
         self._callbackID = None
         self._normalTries = 0
+        self._poseTries = 0
         # The camera was moved for the shooter view.
         self._cameraMoved = False
         # (first point, shell direction) of the chosen hit as last drawn, None without it; told by onDrawn.
@@ -236,6 +281,7 @@ class HitLinesPresenter(object):
         self.__hangarSpace.onVehicleChanged -= self._onVehicleChanged
         self.__hangarSpace.onVehicleChangeStarted -= self._onVehicleChangeStarted
         self._clear()
+        self._resetPose()
         self.onDrawn.clear()
         self._hitsPanel = None
         self._scenePanel = None
@@ -263,6 +309,8 @@ class HitLinesPresenter(object):
         self._clear()
         if target is not None:
             self._draw('hits chosen')
+        else:
+            self._resetPose()
 
     def _onScenePanelChanged(self):
         calls('hit lines: scene panel changed')
@@ -314,8 +362,24 @@ class HitLinesPresenter(object):
         except Exception:
             _logger.exception('hit lines: cannot draw')
 
+    def _resetPose(self):
+        # The hangar vehicle back in the hangar's own pose, when it has loaded.
+        if not self.__hangarSpace.isModelLoaded:
+            return
+        try:
+            _setPose(self.__hangarSpace.getVehicleEntity(), None)
+        except Exception:
+            _logger.exception('hit lines: cannot reset the vehicle pose')
+
     def _drawOn(self, reason, compoundModel, collisions):
         _, chosen, others = self._target
+        pose = chosen.vehiclePose if chosen is not None else None
+        if _setPose(self.__hangarSpace.getVehicleEntity(), pose) and self._poseTries < _POSE_TRIES:
+            self._poseTries += 1
+            _logger.info('scene: hit lines: %s: the vehicle takes the pose %s, drawn on the next frame', reason,
+                         'of the hit' if pose is not None else 'of the hangar')
+            self._callbackID = BigWorld.callback(0.0, self._onPosed)
+            return
         waitsNormal = False
         for hit in others:
             way, waits = _hitWay(hit, compoundModel, collisions)
@@ -338,12 +402,19 @@ class HitLinesPresenter(object):
             entity = self.__hangarSpace.getVehicleEntity()
             _logger.info('check: hit lines: drawn on %s', modulesText(getattr(entity, 'typeDescriptor', None)))
             _checkPoints(chosen, collisions)
+            _logger.info('check: hit lines: pose of the hit: %s; of the hangar vehicle: %s',
+                         'turret %.4f, gun %.4f' % (pose.turretYaw, pose.gunPitch) if pose is not None else None,
+                         _poseText(compoundModel))
         self.chosenShot = first
         calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
         self.onDrawn()
         _logger.info('scene: hit lines: %s: %d shapes, %d other hits, chosen hit at %s, direction %s',
                      reason, len(self._lines), len(others),
                      _text(first[0]) if first else None, _text(first[1]) if first else None)
+
+    def _onPosed(self):
+        self._callbackID = None
+        self._draw('vehicle posed')
 
     def _onNormalRetry(self):
         self._callbackID = None
@@ -372,6 +443,7 @@ class HitLinesPresenter(object):
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
         self._normalTries = 0
+        self._poseTries = 0
         self._lines.clear()
         calls('hit lines: clear', 'chosen line %s' % (self.chosenShot is not None))
         if self.chosenShot is not None:
