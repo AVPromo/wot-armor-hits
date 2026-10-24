@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
-"""User settings: a JSON file in the game folder, written with the defaults when it is not there."""
+"""User settings: a JSON file in the game folder, written with the defaults when it is not there.
+
+ModSettings keeps the settings in memory for the mod: the hits screen's settings menu changes them (set), which
+writes the file and tells the listeners (onChanged, with the key).
+"""
 import json
 import logging
 import os
+
+from Event import Event
 
 from gui.mods.sagtary_armor_hits.config import DEFAULT_SETTINGS, SETTINGS_PATH
 
@@ -14,7 +20,7 @@ def _write(path, settings):
     if not os.path.isdir(directory):
         os.makedirs(directory)
     with open(path, 'w') as f:
-        json.dump(settings, f, indent=4, sort_keys=True)
+        json.dump(settings, f, indent=4, sort_keys=True, separators=(',', ': '))
         f.write('\n')
 
 
@@ -45,3 +51,29 @@ def load():
         else:
             settings[key] = value
     return settings
+
+
+class ModSettings(object):
+
+    def __init__(self):
+        self.values = dict(DEFAULT_SETTINGS)
+        self.onChanged = Event()
+
+    def load(self):
+        self.values = load()
+        return self.values
+
+    def set(self, key, value):
+        # Changes a setting and writes the file; a key or a value of a wrong type is not taken.
+        if key not in DEFAULT_SETTINGS or type(value) is not type(DEFAULT_SETTINGS[key]):
+            _logger.warning('settings: %r cannot be %r', key, value)
+            return
+        if self.values.get(key) == value:
+            return
+        self.values = dict(self.values, **{key: value})
+        try:
+            _write(SETTINGS_PATH, self.values)
+            _logger.info('settings: %s set to %r in %s', key, value, SETTINGS_PATH)
+        except (IOError, OSError):
+            _logger.exception('settings: cannot write %s', SETTINGS_PATH)
+        self.onChanged(key)

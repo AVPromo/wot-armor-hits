@@ -33,7 +33,7 @@ Core:
 |--------------------|------------------------------------------------------------------------------|
 | `config.py`        | ids, resource paths, texts, limits, the battle files folder `BATTLE_FILES_DIR` |
 | `lang.py`          | texts in the client language                                                 |
-| `settings.py`      | user settings from `mods/configs/sagtary_armor_hits/config.json`             |
+| `settings.py`      | user settings from `mods/configs/sagtary_armor_hits/config.json`; `ModSettings` keeps them for the mod and writes the file when the settings menu changes one |
 | `trace.py`         | log of the calls (prefix `calls:`, counts on screen open and close) and texts for the checks of a hit (prefix `check:`, `check: MISMATCH` warnings) |
 | `optional_mods.py` | the optional third-party mods, or `None` when not installed: OpenWG Gameface (`gfModInject`), ModsList API (`modsListApi`) |
 
@@ -42,7 +42,7 @@ Data, without UI (`data/`):
 | Module                    | Does                                                                         |
 |---------------------------|------------------------------------------------------------------------------|
 | `data/record.py`          | `Record`: a plain data object with fields and defaults (`FIELDS`) and nested records (`NESTED`), written to and read from a dict; the base of `Battle` and `Hit` |
-| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, caliber, damage, crits, the hit vehicle's pose as `VehiclePose` (turret yaw, gun pitch, the hull on its chassis when it moves on it, the steered wheels), all the points the shell hit as `HitPoint`s (part index, the shell's way, the effect and the hit type by their client names; the hit effects and the points on the chassis, hull, turret and gun to draw worked out from them), where a splash's shell burst in the hit vehicle's chassis space, the shell's exact direction at the first point from its tracer, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result: damage, else like the client's armor tooltip by the last point's effect: blocked, ricochet, no damage) |
+| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, caliber, damage, crits, the teams of the attacker and the target (a hit on an ally), the hit vehicle's pose as `VehiclePose` (turret yaw, gun pitch, the hull on its chassis when it moves on it, the steered wheels), all the points the shell hit as `HitPoint`s (part index, the shell's way, the effect and the hit type by their client names; the hit effects and the points on the chassis, hull, turret and gun to draw worked out from them), where a splash's shell burst in the hit vehicle's chassis space, the shell's exact direction at the first point from its tracer, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result: damage, else like the client's armor tooltip by the last point's effect: blocked, ricochet, no damage) |
 | `data/hit_parser.py`      | the rules that make the hits from the server's calls, without reading the client: whose hit it is, a shell's hit from its decoded points, a splash, what the battle events and the damage info add (`HitPairing`: an event and a hit of the same vehicle within 1.5 s are one hit), the shell's direction from the tracer whose way passes the first point nearest (`Tracers`) |
 | `data/hit_collector.py`   | `HitCollector`: adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits and a premium shell from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`; the tracers from `PlayerAvatar.showTracer`; reads the client at each call (decoded points, arena, positions) for `hit_parser.py` |
 | `data/hooks.py`           | `ClientHooks`: wraps each client method the server calls once, for all its listeners (the debug record, the hit collector); a listener gets each call (`Call`: entity, arguments by name) before the client's method; the method is put back after its last listener |
@@ -63,6 +63,7 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
 | `views/hits/hangar_scene.py`              | presenter of the hangar camera while the screen is open: its collisions off and its pitch limits widened, so it goes under the floor and looks from below; put back when the screen closes |
+| `views/hits/settings_menu.py`             | presenter of the settings menu: the mod's settings (hits on allies, the lobby button's place, the debug record), and the file buttons, opened by the gear right of the battle selector; a click writes the settings file (`settings.ModSettings`) |
 | `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way (`Way`: lead, pieces on, ricochet's way out, splash) in the 3D scene over the hangar vehicle, turned to the hit's pose (turret yaw, gun pitch) first |
 | `views/hits/hit_way.py`                   | the look of a hit's way: a solid white line to the first point, white dashes after a ricochet or spaced armor, at the line's start a white dot and rings as a cone back towards the shooter |
 | `views/hits/scene_lines.py`               | shapes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay: tubes, dashed tubes (with gaps), spheres, rings |
@@ -96,15 +97,15 @@ Planned, as the features come (after Poliroid's Battle Hits, which does the same
 
 ModsList API is optional; the footer button is the main one.
 
-| Installed                                         | Button                              |
-|---------------------------------------------------|-------------------------------------|
-| OpenWG Gameface                                   | button in the hangar footer         |
-| OpenWG Gameface, ModsList API, `useModsList` on   | entry in the ModsList API mods list |
-| OpenWG Gameface, ModsList API, `useModsList` off  | button in the hangar footer         |
-| neither                                           | no button, a warning in `game.log`  |
+| Installed                                                 | Button                              |
+|-----------------------------------------------------------|-------------------------------------|
+| OpenWG Gameface                                           | button in the hangar footer         |
+| OpenWG Gameface, ModsList API, `showButtonInModsMenu` on  | entry in the ModsList API mods list |
+| OpenWG Gameface, ModsList API, `showButtonInModsMenu` off | button in the hangar footer         |
+| neither                                                   | no button, a warning in `game.log`  |
 
-ModsList API needs OpenWG Gameface itself, so there is no case with ModsList API alone. `useModsList` is in the
-user settings file (see README).
+ModsList API needs OpenWG Gameface itself, so there is no case with ModsList API alone. `showButtonInModsMenu` is in
+the user settings file (see README).
 
 The footer button uses the client's own API where there is one:
 
@@ -204,7 +205,7 @@ cyan, a dash inside), drawn in their style in the colors of the armor tooltip's 
 client's battle atlas (`gui/flash/atlases/commonBattleLobby.dds`, positions from its `.xml`) as CSS sprites; the
 shell kinds are the client's damage log texts (`#ingame_gui:damageLog/shellType/*`).
 
-The file buttons are dim icons at the bottom of the left column, in every build: a floppy disk writes the chosen
+The file buttons are in the settings menu under the settings, in every build: a floppy disk writes the chosen
 battle to `mods/sagtary_armor_hits/hits/hits_<battleId>.json` (`BATTLE_FILES_DIR`; off without a battle), over the
 file of the same battle saved before; an arrow up reads the battles of all the `hits_*.json` files of that folder.
 A player sends the battle's file with a report, the developer puts it into the folder and looks at the battle without

@@ -13,6 +13,35 @@
             <!-- Mouse over the 3D scene: drags turn the camera, the wheel zooms (HitsView.js). -->
             <div class="sceneInput"></div>
             <div class="hitsView__content">
+                <!-- Settings: the gear right of the battle selector opens the menu of the mod's settings below it,
+                     each on or off, and the file buttons (HitsView.js). -->
+                <div class="settingsButton">
+                    <div class="settingsButton__icon"></div>
+                    <div class="settingsMenu">
+                        <div class="settingsMenu__title"></div>
+                        <div class="settingsMenu__items"></div>
+                        <!-- File buttons under the settings: save the chosen battle to its file (a disk), load the battle
+                             files (an arrow up); an icon and a label each (HitsView.js). -->
+                        <div class="fileButtons">
+                            <div class="fileButtons__button fileButtons__save">
+                                <div class="fileButtons__icon">
+                                    <div class="fileButtons__disk"></div>
+                                    <div class="fileButtons__diskShutter"></div>
+                                    <div class="fileButtons__diskLabel"></div>
+                                </div>
+                                <div class="fileButtons__label fileButtons__saveLabel"></div>
+                            </div>
+                            <div class="fileButtons__button fileButtons__import">
+                                <div class="fileButtons__icon">
+                                    <div class="fileButtons__shaft"></div>
+                                    <div class="fileButtons__head fileButtons__headUp"></div>
+                                    <div class="fileButtons__tray"></div>
+                                </div>
+                                <div class="fileButtons__label fileButtons__importLabel"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <div class="hitsView__left">
                     <!-- Battle selector: the selected battle and the list of the session's battles (HitsView.js). -->
                     <div class="battleSelector battleSelector__empty">
@@ -44,26 +73,6 @@
                             <div class="hitsPanel__step hitsPanel__next"></div>
                         </div>
                         <div class="hitsPanel__list"></div>
-                    </div>
-                    <!-- File buttons: save the chosen battle to its file (a disk), load the battle files (an arrow
-                         up); a dim icon and label each at the bottom of the column (HitsView.js). -->
-                    <div class="fileButtons">
-                        <div class="fileButtons__button fileButtons__save">
-                            <div class="fileButtons__icon">
-                                <div class="fileButtons__disk"></div>
-                                <div class="fileButtons__diskShutter"></div>
-                                <div class="fileButtons__diskLabel"></div>
-                            </div>
-                            <div class="fileButtons__label fileButtons__saveLabel"></div>
-                        </div>
-                        <div class="fileButtons__button fileButtons__import">
-                            <div class="fileButtons__icon">
-                                <div class="fileButtons__shaft"></div>
-                                <div class="fileButtons__head fileButtons__headUp"></div>
-                                <div class="fileButtons__tray"></div>
-                            </div>
-                            <div class="fileButtons__label fileButtons__importLabel"></div>
-                        </div>
                     </div>
                 </div>
                 <div class="hitsView__right">

@@ -4,8 +4,9 @@
 HitsPanelPresenter fills the view model (views/models/hits_panel_model.py) for the battle the battle selector shows:
 the side (received or dealt hits), the result filters with their counts, and the hits that pass them; it keeps the
 chosen hit and tells its listeners when the panel changes (onChanged, the battle, the side and the chosen hit in
-selection). The icons are the client's damage log icons; the shell kinds, the vehicle names and the "All" label are
-the client's texts.
+selection). The hits on allies (Hit.isAllyHit) are left out, numbered without them, unless the mod's settings show
+them (showFriendlyFire; the panel follows the setting at once). The icons are the client's damage log icons; the shell
+kinds, the vehicle names and the "All" label are the client's texts.
 """
 import logging
 
@@ -65,10 +66,12 @@ def _fillHit(item, number, hit):
 
 class HitsPanelPresenter(object):
 
-    def __init__(self, model, store, battleSelector, texts):
-        # texts: {'received', 'dealt'}: the tab labels in the client language.
+    def __init__(self, model, store, battleSelector, texts, modSettings=None):
+        # texts: {'received', 'dealt'}: the tab labels in the client language. modSettings: settings.ModSettings, None
+        # for the default settings.
         self._model = model
         self._store = store
+        self._settings = modSettings
         self._battleSelector = battleSelector
         self._texts = texts
         self._battleId = None
@@ -106,11 +109,16 @@ class HitsPanelPresenter(object):
         self._model.onStep += self._onStep
         self._battleSelector.onBattleSelected += self._onBattleSelected
         self._store.onChanged += self._update
+        if self._settings is not None:
+            self._settings.onChanged += self._onSettingChanged
         battle = self._battleSelector.selectedBattle
         self._battleId = battle.battleId if battle is not None else None
         self._update()
 
     def fini(self):
+        if self._settings is not None:
+            self._settings.onChanged -= self._onSettingChanged
+        self._settings = None
         self._store.onChanged -= self._update
         self._battleSelector.onBattleSelected -= self._onBattleSelected
         self.onChanged.clear()
@@ -126,6 +134,12 @@ class HitsPanelPresenter(object):
         self._battleId = battle.battleId if battle is not None else None
         self._filter, self._hitNumber = '', None
         self._update('battle selected')
+
+    def _onSettingChanged(self, key):
+        # The hits on allies shown or hidden: the numbers change, the first hit is chosen.
+        if key == 'showFriendlyFire':
+            self._filter, self._hitNumber = '', None
+            self._update('ally hits setting')
 
     def _onSide(self, args=None):
         side = (args or {}).get('side')
@@ -156,11 +170,15 @@ class HitsPanelPresenter(object):
         self._update('step %d' % delta)
 
     def _sideHits(self):
-        # [(number, hit)] of the battle on the chosen side, numbered from 1 in battle order.
+        # [(number, hit)] of the battle on the chosen side, numbered from 1 in battle order; without the hits on
+        # allies unless they are shown.
         battle = self._store.getBattle(self._battleId) if self._battleId is not None else None
         if battle is None:
             return None
-        return list(enumerate(getattr(battle, _HITS_FIELD[self._side]), 1))
+        hits = getattr(battle, _HITS_FIELD[self._side])
+        if self._settings is None or not self._settings.values.get('showFriendlyFire'):
+            hits = [hit for hit in hits if not hit.isAllyHit]
+        return list(enumerate(hits, 1))
 
     def _shownHits(self):
         hits = self._sideHits() or []

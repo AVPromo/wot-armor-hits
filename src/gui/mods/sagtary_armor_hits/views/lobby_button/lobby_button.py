@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """The hangar button that opens the viewer.
 
-ModsList API is optional. When it is installed (and the useModsList setting is on), the button is an entry in its
+ModsList API is optional. When it is installed (and the showButtonInModsMenu setting is on), the button is an entry in its
 mods list. Otherwise it is a button of its own in the hangar footer next to the game menu button; that needs
 OpenWG Gameface.
 """
@@ -20,8 +20,8 @@ class LobbyButton(object):
         self._onClick = onClick
         self._button = None
 
-    def add(self, useModsList):
-        api = modsListApi() if useModsList else None
+    def add(self, inModsMenu):
+        api = modsListApi() if inModsMenu else None
         if api is not None:
             self._button = ModsListEntry(api, self._click)
             _logger.info('lobby button: ModsList API entry')
@@ -29,7 +29,7 @@ class LobbyButton(object):
             self._button = FooterButton(self._click)
             _logger.info('lobby button: hangar footer')
         else:
-            _logger.warning('no lobby button: it needs OpenWG Gameface (or ModsList API with useModsList on)')
+            _logger.warning('no lobby button: it needs OpenWG Gameface (or ModsList API with showButtonInModsMenu on)')
             return
         self._button.add()
 

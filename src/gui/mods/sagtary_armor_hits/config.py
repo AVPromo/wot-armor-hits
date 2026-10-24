@@ -6,10 +6,12 @@ SETTINGS_PATH = 'mods/configs/sagtary_armor_hits/config.json'
 DEFAULT_SETTINGS = {
     # Put the lobby button into the ModsList API mods list when ModsList API is installed;
     # false: always the button of its own in the hangar footer.
-    'useModsList': True,
+    'showButtonInModsMenu': True,
     # Write the debug record of every battle (every server call about shots, one JSON Lines file per battle in
     # RECORDS_DIR); read when the client starts.
     'debug': False,
+    # Show the hits on allies (and of allies on the player) in the hits list; they do no damage.
+    'showFriendlyFire': False,
 }
 
 # Debug records (one JSON Lines file per battle), relative to the game folder.
@@ -65,6 +67,10 @@ TEXTS = {
         'shot/ricochet': u'ricochet',
         'shot/distanceLoss': u'for the distance of %(distance)s m',
         'shot/deviation': u'from the average',
+        'settings/showFriendlyFire': u'Show friendly fire',
+        'settings/showButtonInModsMenu': u'Show the button in the mods menu',
+        'settings/debug': u'Debug',
+        'settings/restart': u'(game restart required)',
     },
     'ru': {
         'lobbyButton/name': u'Armor Hits',
@@ -96,5 +102,9 @@ TEXTS = {
         'shot/ricochet': u'рикошет',
         'shot/distanceLoss': u'за дистанцию %(distance)s м',
         'shot/deviation': u'от среднего',
+        'settings/showFriendlyFire': u'Показывать огонь по своим',
+        'settings/showButtonInModsMenu': u'Показывать кнопку в меню модов',
+        'settings/debug': u'Дебаг',
+        'settings/restart': u'(требуется перезапуск игры)',
     },
 }

@@ -527,20 +527,15 @@ body {
     color: var(--color-general-tertiary);
 }
 
-/* File buttons at the bottom of the left column, whatever the hits panel's height: a small icon and a label each,
-   dim, clear on hover. Save the chosen battle: a floppy disk, off without a battle. Load the battle files: an arrow
-   up out of a tray. */
+/* File buttons in the settings menu, under a line after the settings: rows like the settings', an icon in place of
+   the check box and a label. Save the chosen battle: a floppy disk, off without a battle. Load the battle files: an
+   arrow up out of a tray. */
 .fileButtons {
     display: none;
-    flex-shrink: 0;
-    margin-top: auto;
+    flex-direction: column;
+    margin-top: 6rem;
     padding-top: 6rem;
-    opacity: 0.45;
-    pointer-events: auto;
-}
-
-.fileButtons:hover {
-    opacity: 1;
+    border-top: 1rem solid rgba(255, 255, 255, 0.1);
 }
 
 .fileButtons__visible {
@@ -550,9 +545,8 @@ body {
 .fileButtons__button {
     display: flex;
     align-items: center;
-    height: 24rem;
-    margin-right: 8rem;
-    padding-right: 8rem;
+    height: 28rem;
+    padding: 0 14rem 0 9rem;
     cursor: pointer;
 }
 
@@ -561,17 +555,21 @@ body {
     width: 24rem;
     height: 24rem;
     flex-shrink: 0;
+    margin-right: 5rem;
 }
 
 .fileButtons__label {
-    font-size: 12rem;
-    text-transform: uppercase;
+    font-size: 14rem;
     white-space: nowrap;
-    color: #c8c8c8;
+    color: var(--color-general-secondary);
 }
 
 .fileButtons__button:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.fileButtons__button:hover .fileButtons__label {
+    color: var(--color-general-primary);
 }
 
 .fileButtons__disabled,
@@ -1390,6 +1388,122 @@ body {
 /* A value counted in the garage, not told by the battle. */
 .shotPanel__counted {
     border-bottom: 1rem dashed #6a7279;
+}
+
+/* The settings right of the battle selector, in the middle of its card's height: the icon alone, dim, bright on hover
+   and while the menu is open. */
+.settingsButton {
+    position: absolute;
+    top: 17rem;
+    left: 448rem;
+    z-index: 20;
+    width: 30rem;
+    height: 30rem;
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+/* Lucide's settings-2 (two sliders), the mod's copy drawn at 48 x 48 for 24rem. */
+.settingsButton__icon {
+    width: 24rem;
+    height: 24rem;
+    margin: 3rem;
+    background: url(img://gui/maps/sagtary_armor_hits/settings.png) no-repeat center/contain;
+    opacity: 0.6;
+}
+
+.settingsButton:hover .settingsButton__icon,
+.settingsButton__open .settingsButton__icon {
+    opacity: 1;
+}
+
+/* The settings menu below the gear; shown while open. */
+.settingsMenu {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 36rem;
+    width: 300rem;
+    padding: 10rem 0 6rem;
+    background-color: rgba(14, 16, 18, 0.96);
+    border: 1rem solid rgba(255, 255, 255, 0.1);
+    cursor: default;
+}
+
+.settingsButton__open .settingsMenu {
+    display: block;
+}
+
+.settingsMenu__title {
+    padding: 0 14rem 8rem;
+    font-size: 13rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--color-general-primary);
+}
+
+/* A setting: a check box, its label and a note under it. */
+.settingsMenu__item {
+    display: flex;
+    align-items: flex-start;
+    padding: 6rem 14rem;
+    cursor: pointer;
+}
+
+.settingsMenu__item:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.settingsMenu__box {
+    position: relative;
+    width: 14rem;
+    height: 14rem;
+    flex-shrink: 0;
+    margin: 1rem 10rem 0 0;
+    border: 1rem solid rgba(255, 255, 255, 0.35);
+}
+
+.settingsMenu__itemOn .settingsMenu__box {
+    border-color: #e0a248;
+    background-color: rgba(224, 162, 72, 0.25);
+}
+
+/* The check: two sides of a rotated box. */
+.settingsMenu__check {
+    display: none;
+    position: absolute;
+    left: 4rem;
+    top: 1rem;
+    width: 4rem;
+    height: 8rem;
+    border-right: 2rem solid #f2c47e;
+    border-bottom: 2rem solid #f2c47e;
+    transform: rotate(45deg);
+}
+
+.settingsMenu__itemOn .settingsMenu__check {
+    display: block;
+}
+
+.settingsMenu__text {
+    min-width: 0;
+}
+
+.settingsMenu__label {
+    font-size: 14rem;
+    line-height: 17rem;
+    color: var(--color-general-secondary);
+}
+
+.settingsMenu__item:hover .settingsMenu__label,
+.settingsMenu__itemOn .settingsMenu__label {
+    color: var(--color-general-primary);
+}
+
+.settingsMenu__note {
+    font-size: 12rem;
+    line-height: 15rem;
+    color: var(--color-general-tertiary);
 }
 
 

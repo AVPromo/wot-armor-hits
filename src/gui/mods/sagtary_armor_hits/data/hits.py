@@ -18,6 +18,8 @@ hit_collector.py in battle.
   the other vehicle's compact descriptor for that. The server packs a point to 1/255 of the part's size on each
   axis, so the direction along a short way is off by a degree or so: the hit keeps the shell's exact direction at
   its first point too (Hit.shotDirection), from the shell's tracer.
+- The teams of the attacker and the target tell a hit on an ally (Hit.isAllyHit): the server sends it with no
+  damage (team damage is off), its points as not pierced.
 - VehiclePose: how the hit vehicle stood at the hit, as the client showed it: its turret and gun, its hull on its
   chassis when the hull moves on it, its steered wheels. Each point is in its own part's space, so it is on the same
   place of the part in any pose; the way between the points on two parts and the armor along it are as the pose was.
@@ -117,6 +119,8 @@ class Hit(Record):
                                 # the other vehicle (the shooter of a received hit, the target of a dealt one): its
                                 # compact descriptor (type and modules), hex; '' when not known
         ('playerName', ''),     # the other vehicle's player
+        ('attackerTeam', None), # the team of the vehicle that shot (the arena's), None when not known
+        ('targetTeam', None),   # the team of the vehicle that was hit, None when not known
         ('shellType', ''),      # the shell kind, a constants.SHELL_TYPES name: ARMOR_PIERCING, HIGH_EXPLOSIVE, ...
         ('caliber', 0.0),       # the shell's caliber in millimetres, as the hit points tell it; 0 when not known
         ('damage', 0),          # hit points the hit took
@@ -140,6 +144,11 @@ class Hit(Record):
     def vehicleId(self):
         # The other vehicle's type (intCD), from its compact descriptor; 0 when not known.
         return vehicleTypeId(self.vehicleDescriptor)
+
+    @property
+    def isAllyHit(self):
+        # A hit on a vehicle of the shooter's own team that took no damage (the client's team damage is off).
+        return self.attackerTeam is not None and self.attackerTeam == self.targetTeam and self.damage == 0
 
     @property
     def hitEffects(self):

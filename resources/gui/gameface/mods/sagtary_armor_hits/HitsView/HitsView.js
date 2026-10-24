@@ -387,6 +387,54 @@ for (let index = 0; index < sceneSegments.length; index++) {
 sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
 sceneReset.addEventListener("click", () => window.model.scenePanel.onResetCamera());
 
+// Settings menu: the gear right of the battle selector opens it, a click on a setting turns it over (onToggle), a click elsewhere or
+// Escape closes it (window.model.settingsMenu).
+const settingsButton = document.querySelector(".settingsButton");
+const settingsMenu = settingsButton.querySelector(".settingsMenu");
+const settingsItems = settingsMenu.querySelector(".settingsMenu__items");
+
+function setSettingsOpen(open) {
+    settingsButton.classList.toggle("settingsButton__open", open);
+}
+
+function drawSettingsMenu() {
+    const model = window.model && window.model.settingsMenu;
+    if (!model) {
+        return;
+    }
+    settingsMenu.querySelector(".settingsMenu__title").textContent = model.title;
+    settingsItems.textContent = "";
+    arrayItems(model.items).forEach((item) => {
+        const row = element("div", "settingsMenu__item");
+        row.classList.toggle("settingsMenu__itemOn", Boolean(item.isOn));
+        const box = element("div", "settingsMenu__box");
+        box.appendChild(element("div", "settingsMenu__check"));
+        row.appendChild(box);
+        const textBox = element("div", "settingsMenu__text");
+        textBox.appendChild(element("div", "settingsMenu__label", item.label));
+        if (item.note) {
+            textBox.appendChild(element("div", "settingsMenu__note", item.note));
+        }
+        row.appendChild(textBox);
+        // Handlers keep plain values: the model's items are destroyed when the model is filled again.
+        const key = item.key;
+        row.addEventListener("click", () => window.model.settingsMenu.onToggle({ key }));
+        settingsItems.appendChild(row);
+    });
+}
+
+settingsButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    setSettingsOpen(!settingsButton.classList.contains("settingsButton__open"));
+});
+settingsMenu.addEventListener("click", (event) => event.stopPropagation());
+document.addEventListener("click", () => setSettingsOpen(false));
+document.addEventListener("keydown", (event) => {
+    if (event.keyCode === 27) {
+        setSettingsOpen(false);
+    }
+});
+
 // Shot panel: the chosen hit's shooter and target cards, its result, its sections (window.model.shotPanel). A value
 // counted in the garage is underlined with dashes.
 const shotPanel = document.querySelector(".shotPanel");
@@ -549,13 +597,14 @@ function draw() {
     drawOverlayPanel();
     drawScenePanel();
     drawShotPanel();
+    drawSettingsMenu();
 }
 
 // The page draws again on a change of the model or of any of its parts: a change inside a part (its arrays, its
 // selection) is told to the observers of that part's path.
 engine.whenReady.then(() => {
     const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.fileButtons", "model.overlayPanel",
-        "model.scenePanel", "model.shotPanel",
+        "model.scenePanel", "model.shotPanel", "model.settingsMenu", "model.settingsMenu.items",
         "model.shotPanel.shooter", "model.shotPanel.target", "model.shotPanel.sections", "model.shotPanel.devices",
         "model.shotPanel.shooter.modules", "model.shotPanel.target.modules"];
     const callbackIDs = paths.map((path) =>

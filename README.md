@@ -33,14 +33,19 @@ Work in progress. Now the mod:
 
 ```json
 {
-    "useModsList": true
+    "debug": false,
+    "showButtonInModsMenu": true,
+    "showFriendlyFire": false
 }
 ```
 
-- `useModsList`: `true` puts the button into the ModsList API mods list when ModsList API is installed; `false`
-  keeps it in the hangar footer always.
+- `showButtonInModsMenu`: `true` puts the button into the ModsList API mods list when ModsList API is installed;
+  `false` keeps it in the hangar footer always. Takes effect when the game starts again.
+- `showFriendlyFire`: `true` shows the hits on allies and of allies in the hits list (they do no damage).
+- `debug`: `true` writes the debug record of every battle into `mods/sagtary_armor_hits/debug`.
 
-The file is read when the game starts; restart the game after a change.
+The file is read when the game starts. The settings menu of the hits screen (the gear right of the battle selector) changes them
+and writes the file.
 
 ## Build
 

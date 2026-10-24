@@ -13,7 +13,8 @@ header and the footer.
 The page passes mouse drags and the wheel over the 3D scene to the hangar camera (onMoveSpace, onMouseOver3dScene),
 like the client's SceneWrapper, so the camera turns around the vehicle. The panels, the hangar vehicle and the hit
 lines in the scene have presenters of their own, made here with the data they show. The file buttons (save the
-chosen battle to its file, load the battle files) are there when the view is given the battle files.
+chosen battle to its file, load the battle files) are there when the view is given the battle files, the settings
+menu when it is given the mod's settings.
 """
 from frameworks.wulf import WindowFlags
 from gui.hangar_cameras.hangar_camera_common import CameraRelatedEvents
@@ -34,6 +35,7 @@ from gui.mods.sagtary_armor_hits.views.hits.hit_lines import HitLinesPresenter
 from gui.mods.sagtary_armor_hits.views.hits.hits_panel import HitsPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.overlay_panel import OverlayPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.scene_panel import ScenePanelPresenter
+from gui.mods.sagtary_armor_hits.views.hits.settings_menu import SettingsMenuPresenter
 from gui.mods.sagtary_armor_hits.views.hits.shot_panel import ShotPanelPresenter
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import SceneLog
 from gui.mods.sagtary_armor_hits.views.models.hits_view_model import HitsViewModel
@@ -46,14 +48,17 @@ VIEW_ALIAS = 'sagtaryArmorHitsView'
 _SHOT_TEXTS = ('shot/shooter', 'shot/target', 'shot/damage', 'shot/penetration', 'shot/armor', 'shot/angle',
                'shot/distance', 'shot/crits', 'shot/avgDamage', 'shot/avgPenetration',
                'shot/chance', 'shot/nominal', 'shot/angleArmor', 'shot/ricochet', 'shot/distanceLoss', 'shot/deviation')
+# The settings menu's texts.
+_SETTINGS_TEXTS = ('settings/showFriendlyFire', 'settings/showButtonInModsMenu', 'settings/debug', 'settings/restart')
 
 
 class HitsView(ViewComponent):
 
-    def __init__(self, battleStore, battleFiles=None):
+    def __init__(self, battleStore, battleFiles=None, modSettings=None):
         super(HitsView, self).__init__(R.mods.sagtary_armor_hits.views.HitsView(), HitsViewModel)
         self._battleStore = battleStore
         self._battleFiles = battleFiles
+        self._settings = modSettings
         self._presenters = []
         self._shotPanel = None
 
@@ -83,7 +88,7 @@ class HitsView(ViewComponent):
         self._presenters.append(battleSelector)
         # The hits panel shows the battle the selector shows, so it is made and set up after the selector.
         hitsPanel = HitsPanelPresenter(model.hitsPanel, self._battleStore, battleSelector, {
-            'received': text('hits/received'), 'dealt': text('hits/dealt')})
+            'received': text('hits/received'), 'dealt': text('hits/dealt')}, self._settings)
         self._presenters.append(hitsPanel)
         # The hangar shows the vehicle the hits panel shows the hits on.
         self._presenters.append(HangarVehiclePresenter(hitsPanel))
@@ -106,6 +111,9 @@ class HitsView(ViewComponent):
         if self._battleFiles is not None:
             self._presenters.append(FileButtonsPresenter(model.fileButtons, self._battleStore, self._battleFiles, hitsPanel, {
                 'save': text('file/save'), 'import': text('file/import'), 'imported': text('file/imported'), 'exported': text('file/exported'), 'failed': text('file/failed')}))
+        if self._settings is not None:
+            self._presenters.append(SettingsMenuPresenter(model.settingsMenu, self._settings, dict(
+                (key.split('/')[1], text(key)) for key in _SETTINGS_TEXTS)))
         for presenter in self._presenters:
             presenter.init()
 
@@ -117,6 +125,7 @@ class HitsView(ViewComponent):
         summary('while the screen was open')
         self._battleStore = None
         self._battleFiles = None
+        self._settings = None
         super(HitsView, self)._finalize()
 
     @staticmethod
@@ -136,8 +145,8 @@ class HitsView(ViewComponent):
 
 class HitsWindow(WindowImpl):
 
-    def __init__(self, layer, battleStore, battleFiles=None, **kwargs):
+    def __init__(self, layer, battleStore, battleFiles=None, modSettings=None, **kwargs):
         # The client's view loader makes the window with the keyword arguments of App.loadView: HitsScreen gives the
-        # battleStore and the battleFiles there, the lobby state gives its ctx.
-        super(HitsWindow, self).__init__(content=HitsView(battleStore, battleFiles), wndFlags=WindowFlags.WINDOW,
-                                         layer=layer)
+        # battleStore, the battleFiles and the modSettings there, the lobby state gives its ctx.
+        super(HitsWindow, self).__init__(content=HitsView(battleStore, battleFiles, modSettings),
+                                         wndFlags=WindowFlags.WINDOW, layer=layer)

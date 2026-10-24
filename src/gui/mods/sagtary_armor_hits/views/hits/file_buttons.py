@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """File buttons of the hits screen: save the chosen battle to its own file, and load the battles of all the battle
 files of the folder into the BattleStore. A player sends a battle's file with a report, and the battle is looked at on
-another client: the file is put into the folder and loaded. The buttons are an icon and a label each, at the bottom of
-the left panels; the save is off while no battle is chosen. The result is the client's toast (a system message: the
+another client: the file is put into the folder and loaded. The buttons are an icon and a label each, in the settings
+menu under the settings; the save is off while no battle is chosen. The result is the client's toast (a system message: the
 popup at the bottom right, then in the notification center) with the full path of the file or the folder.
 """
 import logging
