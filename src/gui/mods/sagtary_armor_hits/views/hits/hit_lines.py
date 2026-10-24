@@ -16,16 +16,16 @@ vehicle presenter has asked for the vehicle, and the lines are drawn when the ha
 (HangarSpace.onVehicleChanged; the parts of the vehicle are in their places then). The lines are removed when the
 hangar starts to change the vehicle (onVehicleChangeStarted) and drawn again when the hits or the choices change.
 
-The way of a shell, from its points (Hit.points): a piece of _LEAD metres before the first point, along the shell's
-direction there; a piece to the next point after a ricochet or spaced armor, where the shell goes on (it hits the
-vehicle again, or its main armor behind the spaced one); after a ricochet that is the last point, a piece of
-_RICOCHET metres in the mirrored direction (the client does not tell where the shell went). The way after a
-penetration is not drawn. A high explosive shell bursts at its first point: its other points are what the burst hit,
-not its way, so only the way to the first point is drawn. A splash (Hit.splashCenter) has no points: a sphere
-where the shell burst and a line from there down (or up) to the level of the vehicle's tracks, the chassis space's
-ground, when it is more than _GROUND metres away: the shell burst on a slope, in a hole or on a rock or a wall, while
-the hangar's floor is flat. The explosion radius is not drawn: about 10 m
-for a big gun, it covers the hangar.
+The way of a shell, from its points on the vehicle's own parts (Hit.vehiclePoints): a piece of _LEAD metres before
+the first point, along the shell's direction there; a piece to the next point after a ricochet or spaced armor,
+where the shell goes on (it hits the vehicle again, or its main armor behind the spaced one); after a ricochet that
+is the last point, a piece of _RICOCHET metres in the mirrored direction (the client does not tell where the shell
+went). The way after a penetration is not drawn. A high explosive shell bursts at its first point: its other points
+are what the burst hit, not its way, so only the way to the first point is drawn. A splash (Hit.splashCenter) has no
+points: a sphere where the shell burst and a line from there down (or up) to the level of the vehicle's tracks, the
+chassis space's ground, when it is more than _GROUND metres away: the shell burst on a slope, in a hole or on a rock
+or a wall, while the hangar's floor is flat. The explosion radius is not drawn: about 10 m for a big gun, it covers
+the hangar.
 
 A point is the middle of the shell's way through the part the server sends, and the shell's direction is along that
 way, like the Battle Hits mod places its hits: data only, so a point does not wait for the vehicle's collision model.
@@ -98,9 +98,9 @@ def _armorNormal(collisions, point):
         return None
     start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
     try:
-        distance, _, normal, _ = collisions.collideLocal(point.part, start, end)
+        distance, _, normal, _ = collisions.collideLocal(point.tankPartIndex, start, end)
     except Exception:
-        _logger.debug('hit lines: no collision of part %s', point.part, exc_info=True)
+        _logger.debug('hit lines: no collision of part %s', point.tankPartIndex, exc_info=True)
         return None
     if distance < 0.0 or distance > (end - start).length + 0.01 or not 0.5 < Math.Vector3(normal).length < 1.5:
         return None
@@ -109,7 +109,7 @@ def _armorNormal(collisions, point):
 
 def _drawn(hit):
     # The hit has something to draw: its points or where its splash burst.
-    return bool(hit.points or hit.splashCenter)
+    return bool(hit.vehiclePoints or hit.splashCenter)
 
 
 def _splashWay(hit, compoundModel):
@@ -146,13 +146,13 @@ class Way(object):
 def _hitWay(hit, compoundModel, collisions):
     # (the hit's Way, whether a ricochet's way out waits for the collision model).
     way = Way()
-    if not hit.points and hit.splashCenter:
+    if not hit.vehiclePoints and hit.splashCenter:
         way.splash, way.first = _splashWay(hit, compoundModel)
         return way, False
     points = []
-    for point in hit.points:
+    for point in hit.vehiclePoints:
         start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
-        matrix = _partNode(compoundModel, point.part)
+        matrix = _partNode(compoundModel, point.tankPartIndex)
         if matrix is None or (end - start).length < 1e-6:
             continue
         points.append((point, matrix, matrix.applyPoint((start + end) * 0.5), _unit(matrix.applyVector(end - start))))
@@ -167,12 +167,12 @@ def _hitWay(hit, compoundModel, collisions):
     way.first = (points[0][2], points[0][3])
     waitsNormal = False
     for previous, current in zip(points, points[1:]):
-        if previous[0].effect not in _GOES_ON:
+        if previous[0].effectCode not in _GOES_ON:
             break
         way.links.append((previous[2], current[2]))
     else:
         point, matrix, position, direction = points[-1]
-        if point.effect in _RICOCHETS:
+        if point.effectCode in _RICOCHETS:
             normal = _armorNormal(collisions, point)
             if normal is not None:
                 normal = _unit(matrix.applyVector(normal))
@@ -186,20 +186,20 @@ def _hitWay(hit, compoundModel, collisions):
 def _checkPoints(hit, collisions):
     # The log of where the hangar vehicle's armor is on the way of each of the hit's points: a point without armor on
     # its way is on other modules or another vehicle than the hangar's.
-    for index, point in enumerate(hit.points):
+    for index, point in enumerate(hit.vehiclePoints):
         start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
         text = 'no collision model'
         if collisions is not None:
             try:
-                found = collisions.collideLocal(point.part, start, end)
+                found = collisions.collideLocal(point.tankPartIndex, start, end)
             except Exception:
                 found = None
             if found is None or found[0] < 0.0:
                 text = 'NO ARMOR on the way (other modules or another vehicle?)'
             else:
                 text = 'armor at %.3f m of the %.3f m way' % (found[0], (end - start).length)
-        _logger.info('check: hit lines: point %d, part %s, %s: %s', index, point.part,
-                     effectsText((point.effect,)), text)
+        _logger.info('check: hit lines: point %d, part %s, %s: %s', index, point.tankPartIndex,
+                     effectsText((point.effectCode,)), text)
 
 
 class HitLinesPresenter(object):
@@ -253,7 +253,8 @@ class HitLinesPresenter(object):
         calls('hit lines: update')
         _logger.info('scene: hit lines: selection battle %s, side %s, hit at %s with %d points, %d other hits, '
                      'vehicle %s; %s', battle.battleId if battle is not None else None, side,
-                     hit.time if hit is not None else None, len(hit.points) if hit is not None else 0, len(others),
+                     hit.time if hit is not None else None, len(hit.vehiclePoints) if hit is not None else 0,
+                     len(others),
                      vehicle[0] if isinstance(vehicle, tuple) else vehicle,
                      'same target' if target == self._target else 'new target')
         if target == self._target:
@@ -326,7 +327,7 @@ class HitLinesPresenter(object):
             waitsNormal = waitsNormal or waits
             first = way.first
             drawWay(self._lines, way, True)
-            if chosen.splashCenter and not chosen.points:
+            if chosen.splashCenter and not chosen.vehiclePoints:
                 _logger.info('check: hit lines: splash at %s of the chassis', chosen.splashCenter)
         if waitsNormal and self._normalTries < _NORMAL_TRIES:
             self._normalTries += 1

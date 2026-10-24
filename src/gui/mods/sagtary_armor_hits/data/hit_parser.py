@@ -10,7 +10,7 @@ and gives it here, so the same rules can make the hits from any source of the sa
   parseHitPoint), a high explosive splash from where it burst.
 - eventInfo, shotDevice, withInfo: what more the client's battle events (PlayerAvatar.onBattleEvents, the source of its
   damage log) and its damage info of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) tell about a hit:
-  crits, a premium shell, the blocked damage, the modules and crew the shell damaged.
+  crits, a premium shell, the modules and crew the shell damaged.
 - HitPairing: the events and the hit of the same vehicle within _PAIRING_TIME before or after it are one hit.
 - Tracers, shotDirection: the shooter's tracer (PlayerAvatar.showTracer: where the shell starts, its velocity and
   gravity, as floats) gives the shell's direction at the first point: the tracer whose way passes the point nearest,
@@ -23,9 +23,8 @@ import Math
 from BattleFeedbackCommon import BATTLE_EVENT_TYPE, NONE_SHELL_TYPE
 from constants import SHELL_TYPES, SHELL_TYPES_LIST
 from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
-from vehicle_systems.tankStructure import TankPartIndexes
 
-from gui.mods.sagtary_armor_hits.data.hits import DamagedDevice, Hit, HitPoint
+from gui.mods.sagtary_armor_hits.data.hits import DamagedDevice, Hit, HitPoint, effectName
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -78,16 +77,13 @@ def hitSide(vehicleID, attackerID, playerVehicleID):
 
 def shotHit(damage, decodedPoints):
     # A shell's hit from its points as DamageFromShotDecoder.parseHitPoint gives them: (part index, hit effect,
-    # start, end, hit type, shell type index, caliber).
-    effects, points, shellType = [], [], ''
+    # start, end, hit type, shell type index, caliber). All of them, on any part.
+    points, shellType = [], ''
     for decoded in decodedPoints:
         part, effect, start, end = decoded[:4]
-        effects.append(effect)
         shellType = shellType or _shellType(decoded[5])
-        # A dynamic part (negative index) is not one of the vehicle's own parts.
-        if 0 <= part < len(TankPartIndexes.ALL):
-            points.append(HitPoint(part=part, start=vector(start), end=vector(end), effect=effect))
-    return Hit(damage=damage or 0, shellType=shellType, hitEffects=tuple(effects), points=tuple(points))
+        points.append(HitPoint(tankPartIndex=part, start=vector(start), end=vector(end), effect=effectName(effect)))
+    return Hit(damage=damage or 0, shellType=shellType, points=tuple(points))
 
 
 def splashHit(damage, center):
@@ -101,14 +97,14 @@ def eventSide(eventType):
 
 
 def eventInfo(eventType, details):
-    # {Hit field: value} of a battle event: crits, a premium shell, the damage the armor blocked. The events of the
-    # player's own hits do not tell the shell (NONE_SHELL_TYPE): no premium flag from them.
+    # {Hit field: value} of a battle event: crits, a premium shell. The events of the player's own hits do not tell
+    # the shell (NONE_SHELL_TYPE): no premium flag from them.
     if eventType in _CRIT_EVENTS:
         critsCount, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackCrits(details)[:4]
         info = {'critsCount': critsCount}
     else:
-        damage, _, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackDamage(details)[:5]
-        info = {'blockedDamage': damage} if eventType == BATTLE_EVENT_TYPE.TANKING else {}
+        shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackDamage(details)[3:5]
+        info = {}
     if shellTypeID != NONE_SHELL_TYPE:
         info['isGoldShell'] = bool(isGold)
     return info

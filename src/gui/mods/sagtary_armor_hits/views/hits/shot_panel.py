@@ -491,8 +491,8 @@ class ShotPanelPresenter(object):
             position, direction = chosenShot
             _logger.info('check: hit line at (%.3f, %.3f, %.3f), direction (%.3f, %.3f, %.3f)', position.x,
                          position.y, position.z, direction.x, direction.y, direction.z)
-        elif hit.points:
-            _logger.info('check: no hit line drawn yet for %d points', len(hit.points))
+        elif hit.vehiclePoints:
+            _logger.info('check: no hit line drawn yet for %d points', len(hit.vehiclePoints))
         if armor is not None:
             materials, info = armor
             _logger.info('check: armor: chance %s, result %s; layers %s', getattr(info, 'chance', None),

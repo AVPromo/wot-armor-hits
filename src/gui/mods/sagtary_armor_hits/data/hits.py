@@ -12,10 +12,12 @@ hit_collector.py in battle.
   numbers for them are not kept: the extra's index depends on the vehicle type, the code's on the client version.
 - HitPoint: one point a shell hit (a shell that ricochets or goes through spaced armor hits more than one): the
   vehicle part and the shell's way through its armor, as the server sends it (DamageFromShotDecoder.parseHitPoint).
-  The points are in the part's own space, so they are drawn on the same vehicle with the same modules, whatever the
-  turret and the gun angles: the hit keeps the other vehicle's compact descriptor for that. The server packs a
-  point to 1/255 of the part's size on each axis, so the direction along a short way is off by a degree or so: the
-  hit keeps the shell's exact direction at its first point too (Hit.shotDirection), from the shell's tracer.
+  A hit keeps all its points, also those on parts other than the chassis, hull, turret and gun (the wheels of a
+  wheeled vehicle); the drawing takes only those (Hit.vehiclePoints). The points are in the part's own space, so
+  they are drawn on the same vehicle with the same modules, whatever the turret and the gun angles: the hit keeps
+  the other vehicle's compact descriptor for that. The server packs a point to 1/255 of the part's size on each
+  axis, so the direction along a short way is off by a degree or so: the hit keeps the shell's exact direction at
+  its first point too (Hit.shotDirection), from the shell's tracer.
 """
 import logging
 
@@ -30,6 +32,13 @@ _logger = logging.getLogger('sagtary.armor_hits')
 # id takes 2 bytes: items.vehicles.EXTENDED_VEHICLE_TYPE_ID_FLAG) and the vehicle type id.
 _VEHICLE_ITEM_TYPE = 1
 _EXTENDED_TYPE_ID = 2
+# The parts of tankStructure.TankPartIndexes (chassis 0, hull 1, turret 2, gun 3); the client numbers the others (the
+# wheels of a wheeled vehicle, below 0) after them.
+_VEHICLE_PARTS = 4
+# The constants.VEHICLE_HIT_EFFECT names a point keeps its effect by: a name tells what it was even when the client
+# renames or renumbers its codes.
+_EFFECT_NAMES = ('ARMOR_PIERCED_NO_DAMAGE', 'INTERMEDIATE_RICOCHET', 'FINAL_RICOCHET', 'ARMOR_NOT_PIERCED',
+                 'ARMOR_PIERCED', 'CRITICAL_HIT', 'ARMOR_PIERCED_DEVICE_DAMAGED', 'INVALID')
 
 
 class HitResult(object):
@@ -44,12 +53,24 @@ class HitResult(object):
 
 class HitPoint(Record):
     FIELDS = (
-        ('part', 0),            # the vehicle part (tankStructure.TankPartIndexes: chassis 0, hull 1, turret 2, gun 3)
+        ('tankPartIndex', 0),   # the vehicle part as the client numbers it (tankStructure.TankPartIndexes: chassis 0,
+                                # hull 1, turret 2, gun 3; a wheel of a wheeled vehicle below 0)
         ('start', ()),          # (x, y, z) of the shell's way before the armor, in metres in the part's space
         ('end', ()),            # (x, y, z) of the shell's way behind the armor
-        ('effect', 0),          # constants.VEHICLE_HIT_EFFECT of the point
+        ('effect', ''),         # what the shell did there: a constants.VEHICLE_HIT_EFFECT name (ARMOR_PIERCED, ...),
+                                # the code as text when the client has no name for it
     )
     __slots__ = tuple(name for name, _ in FIELDS)
+
+    @property
+    def effectCode(self):
+        # The constants.VEHICLE_HIT_EFFECT code of the effect, None when not known.
+        return effectCode(self.effect)
+
+    @property
+    def isOnVehiclePart(self):
+        # On the chassis, hull, turret or gun, the parts the hangar vehicle's points are drawn on.
+        return 0 <= self.tankPartIndex < _VEHICLE_PARTS
 
 
 class DamagedDevice(Record):
@@ -73,8 +94,6 @@ class Hit(Record):
         ('playerName', ''),     # the other vehicle's player
         ('shellType', ''),      # the shell kind, a constants.SHELL_TYPES name: ARMOR_PIERCING, HIGH_EXPLOSIVE, ...
         ('damage', 0),          # hit points the hit took
-        ('blockedDamage', 0),   # damage the armor blocked (received hits only, as the client tells it)
-        ('hitEffects', ()),     # constants.VEHICLE_HIT_EFFECT of each point the shell hit, in order
         ('isSplash', False),    # a high explosive splash nearby, not a hit on the armor
         ('critsCount', 0),      # modules and crew the hit damaged, as the client's damage log counts them
         ('isGoldShell', False), # a premium shell
@@ -83,7 +102,8 @@ class Hit(Record):
         ('damagedDevices', ()), # what the shell did to the player's vehicle (received hits), in order (DamagedDevice)
         ('splashCenter', ()),   # (x, y, z) where a splash's shell burst, in metres in the hit vehicle's chassis space
                                 # (part 0 of the points); () when not known
-        ('shotDirection', ()),  # (x, y, z) unit direction of the shell at the first point, in that point's part space,
+        ('shotDirection', ()),  # (x, y, z) unit direction of the shell at the first point of vehiclePoints, in its part
+                                # space,
                                 # from the shell's tracer (exact, unlike the points); () when not known
     )
     NESTED = {'points': HitPoint, 'damagedDevices': DamagedDevice}
@@ -93,6 +113,16 @@ class Hit(Record):
     def vehicleId(self):
         # The other vehicle's type (intCD), from its compact descriptor; 0 when not known.
         return vehicleTypeId(self.vehicleDescriptor)
+
+    @property
+    def hitEffects(self):
+        # constants.VEHICLE_HIT_EFFECT code of each point the shell hit, in order.
+        return tuple(point.effectCode for point in self.points)
+
+    @property
+    def vehiclePoints(self):
+        # The points on the chassis, hull, turret and gun, in order: those that are drawn.
+        return tuple(point for point in self.points if point.isOnVehiclePart)
 
     @property
     def result(self):
@@ -105,6 +135,21 @@ class Hit(Record):
         if last in VEHICLE_HIT_EFFECT.PIERCED_HITS:
             return HitResult.NO_DAMAGE
         return HitResult.BLOCKED
+
+
+def effectName(code):
+    # The name a point keeps its constants.VEHICLE_HIT_EFFECT code by; the code as text without one.
+    for name in _EFFECT_NAMES:
+        if getattr(VEHICLE_HIT_EFFECT, name, None) == code:
+            return name
+    return str(code)
+
+
+def effectCode(name):
+    # The constants.VEHICLE_HIT_EFFECT code of a point's effect name (or of a code kept as text); None when not known.
+    if name in _EFFECT_NAMES:
+        return getattr(VEHICLE_HIT_EFFECT, name, None)
+    return int(name) if name.isdigit() else None
 
 
 def compactDescriptor(descriptor):

@@ -143,8 +143,8 @@ class HitCollector(object):
             return
         if call.name == 'showDamageFromShot':
             hit = hit_parser.shotHit(call.get('damage'), _decodedPoints(vehicle, call.get('hitPoints')))
-            if hit.points:
-                hit = hit.replace(shotDirection=self._shotDirection(vehicle, attackerID, hit.points[0]))
+            if hit.vehiclePoints:
+                hit = hit.replace(shotDirection=self._shotDirection(vehicle, attackerID, hit.vehiclePoints[0]))
             if field == 'dealtHits':
                 hit = hit.replace(isGoldShell=_ownShellIsGold(player, hit.shellType))
         else:
@@ -163,7 +163,7 @@ class HitCollector(object):
         self._store.update(battle.replace(**{field: hits}))
 
     def _shotDirection(self, vehicle, attackerID, point):
-        matrix = _partMatrix(vehicle, point.part)
+        matrix = _partMatrix(vehicle, point.tankPartIndex)
         if matrix is None:
             return ()
         return hit_parser.shotDirection(self._tracers, attackerID, matrix, point)
