@@ -45,8 +45,8 @@ def hitsVehicle(battle, side, hit):
     if side == DEALT:
         if hit is None:
             return _NO_VEHICLE
-        return _shownVehicle(hit.vehicleId, hit.vehicleDescr) or _NO_VEHICLE
-    return _shownVehicle(battle.vehicleId, battle.vehicleDescr) or _NO_VEHICLE
+        return _shownVehicle(hit.vehicleId, hit.vehicleDescriptor) or _NO_VEHICLE
+    return _shownVehicle(battle.vehicleId, battle.vehicleDescriptor) or _NO_VEHICLE
 
 
 def _vehicleText(vehicle):

@@ -346,11 +346,11 @@ class ShotPanelPresenter(object):
             _logger.exception('shot panel: cannot check the hit')
         myName = getattr(BigWorld.player(), 'name', '') or ''
         if side == DEALT:
-            shooter = (battle.vehicleId, battle.vehicleDescr, myName)
-            target = (hit.vehicleId, hit.vehicleDescr, hit.playerName)
+            shooter = (battle.vehicleId, battle.vehicleDescriptor, myName)
+            target = (hit.vehicleId, hit.vehicleDescriptor, hit.playerName)
         else:
-            shooter = (hit.vehicleId, hit.vehicleDescr, hit.playerName)
-            target = (battle.vehicleId, battle.vehicleDescr, myName)
+            shooter = (hit.vehicleId, hit.vehicleDescriptor, hit.playerName)
+            target = (battle.vehicleId, battle.vehicleDescriptor, myName)
         shooterModules = self._shooterModules(shooter, gunShot)
         targetModules = self._targetModules(target)
         with self._model.transaction() as model:
@@ -380,7 +380,7 @@ class ShotPanelPresenter(object):
         # The modules and crew tiles of a hit on the player's vehicle that damaged some; none on another vehicle.
         if side == DEALT or not any(device.extra and device.code in _CODE_STATES for device in hit.damagedDevices):
             return []
-        descriptor = _descriptor(battle.vehicleId, battle.vehicleDescr)
+        descriptor = _descriptor(battle.vehicleId, battle.vehicleDescriptor)
         if descriptor is None:
             return []
         try:
@@ -465,7 +465,8 @@ class ShotPanelPresenter(object):
         if key != self._checked:
             self._checked = key
             _logger.info('check: hit #%s %s of battle %s: %s', number, side, battle.battleId, hitText(hit))
-            _logger.info('check: battle vehicle %s, descr %s', battle.vehicleId, 'yes' if battle.vehicleDescr else 'no')
+            _logger.info('check: battle vehicle %s, compact descriptor %s', battle.vehicleId,
+                         'yes' if battle.vehicleDescriptor else 'no')
             if gunShot is not None:
                 gun, shot = gunShot
                 _logger.info('check: shell %s (%s%s) of gun %s: damage %s, penetration %s, speed %s',

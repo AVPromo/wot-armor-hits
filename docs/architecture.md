@@ -47,7 +47,7 @@ Data, without UI (`data/`):
 | `data/hit_collector.py`   | `HitCollector`: adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`; the tracers from `PlayerAvatar.showTracer`; reads the client at each call (decoded points, arena, positions) for `hit_parser.py` |
 | `data/hooks.py`           | `ClientHooks`: wraps each client method the server calls once, for all its listeners (the debug record, the hit collector); a listener gets each call (`Call`: entity, arguments by name) before the client's method; the method is put back after its last listener |
 | `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays, and its winner on `onRoundFinished`) |
-| `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`, `vehicleId`), so a battle from a file shows in the current client language |
+| `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`; `vehicleId` from the first bytes of `vehicleDescriptor`), so a battle from a file shows in the current client language |
 | `data/battle_file.py`     | the battles written to JSON files and read back (`BattleFiles`), for the file buttons (reports): one file `hits_<battleId>.json` per battle, written over when saved again; loading reads all `hits_*.json` of the folder; a file has `formatVersion` (its layout) and `appVersion` (the mod that wrote it) |
 | `data/debug_recorder.py`  | debug record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/debug/`; on only with the `debug` setting (`mods/configs/sagtary_armor_hits/config.json`, read when the client starts) |
 
@@ -154,7 +154,7 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   (`g_currentPreviewVehicle.selectVehicle`): the player's vehicle of the battle on the received side, the vehicle of
   the chosen hit on the dealt side (the copied vehicle for a maps training dummy), no vehicle when there is none
   to show: no battles, no hits on the dealt side (`HangarSpace.removeVehicle`). The vehicle has the modules it had in the battle (the compact
-  descriptor kept in `Battle.vehicleDescr` and `Hit.vehicleDescr`), as the hit points are on them; a battle recorded
+  descriptor kept in `Battle.vehicleDescriptor` and `Hit.vehicleDescriptor`), as the hit points are on them; a battle recorded
   without it shows the default modules. Closing the screen shows the current vehicle again (`selectNoVehicle`);
 - the chosen hit is drawn in the 3D scene over that vehicle (`hit_lines.py`). The hit points are in the space of
   their parts (`DamageFromShotDecoder.parseHitPoint`: the part and the shell's way through it); a point is the middle

@@ -17,7 +17,7 @@ from Event import Event
 from PlayerEvents import g_playerEvents
 
 from gui.mods.sagtary_armor_hits.config import BATTLES_LIMIT
-from gui.mods.sagtary_armor_hits.data.hits import Hit, vehicleDescr
+from gui.mods.sagtary_armor_hits.data.hits import Hit, compactDescriptor, vehicleTypeId
 from gui.mods.sagtary_armor_hits.data.record import Record
 from gui.mods.sagtary_armor_hits.trace import calls
 
@@ -48,8 +48,8 @@ class Battle(Record):
         ('mapId', 0),           # the map (the client's geometryID: the low 16 bits of arenaTypeID)
         ('gameplayId', 0),      # the gameplay on the map: standard, encounter, assault, ... (the high bits)
         ('battleType', 0),      # kind of battle: random, training, ... (constants.ARENA_GUI_TYPE)
-        ('vehicleId', 0),       # the player's vehicle (its intCD, the client's vehicle type compactDescr)
-        ('vehicleDescr', ''),   # the player's vehicle compact descriptor (its modules), hex; '' when not known
+        ('vehicleDescriptor', ''),
+                                # the player's vehicle compact descriptor (type and modules), hex; '' when not known
         ('startedAt', 0.0),     # when the player entered the battle, Unix time in seconds
         ('isReplay', False),    # a replay watched, not a battle played
         ('playerTeam', None),   # the player's team, 1 or 2; None when not known
@@ -60,6 +60,11 @@ class Battle(Record):
     )
     NESTED = {'receivedHits': Hit, 'dealtHits': Hit}
     __slots__ = tuple(name for name, _ in FIELDS)
+
+    @property
+    def vehicleId(self):
+        # The player's vehicle type (intCD), from its compact descriptor; 0 when not known.
+        return vehicleTypeId(self.vehicleDescriptor)
 
     @property
     def result(self):
@@ -82,11 +87,10 @@ def battleFromAvatar(player):
         mapId=player.arenaTypeID & _MAP_ID_MASK,
         gameplayId=player.arenaTypeID >> _GAMEPLAY_ID_SHIFT,
         battleType=player.arenaGuiType,
-        vehicleId=descriptor.type.compactDescr if descriptor is not None else 0,
         startedAt=time.time(),
         isReplay=BattleReplay.isPlaying(),
         playerTeam=player.team,
-        vehicleDescr=vehicleDescr(descriptor),
+        vehicleDescriptor=compactDescriptor(descriptor),
     )
 
 

@@ -29,7 +29,7 @@ from VehicleEffects import DamageFromShotDecoder
 from vehicle_systems.tankStructure import TankPartIndexes, TankPartNames
 
 from gui.mods.sagtary_armor_hits.data import hit_parser
-from gui.mods.sagtary_armor_hits.data.hits import ownShellIsGold, vehicleDescr
+from gui.mods.sagtary_armor_hits.data.hits import compactDescriptor, ownShellIsGold
 from gui.mods.sagtary_armor_hits.trace import hitText
 
 _logger = logging.getLogger('sagtary.armor_hits')
@@ -153,8 +153,8 @@ class HitCollector(object):
         arenaVehicle = player.arena.vehicles.get(otherID) or {}
         descriptor = arenaVehicle.get('vehicleType')
         hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',
-                          vehicleId=descriptor.type.compactDescr if descriptor is not None else 0,
-                          vehicleDescr=vehicleDescr(descriptor), distance=_distance(vehicle.id, attackerID))
+                          vehicleDescriptor=compactDescriptor(descriptor),
+                          distance=_distance(vehicle.id, attackerID))
         key, now = (field, otherID), BigWorld.serverTime()
         hit = self._pairing.withPending(key, hit, now)
         hits = getattr(battle, field) + (hit,)

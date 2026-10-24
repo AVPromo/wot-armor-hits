@@ -61,9 +61,9 @@ def _hitShot(battle, side, hit):
     if battle is None or hit is None or not hit.shellType:
         return None
     if side == DEALT:
-        descriptor = _vehicleDescriptor(battle.vehicleId, battle.vehicleDescr)
+        descriptor = _vehicleDescriptor(battle.vehicleId, battle.vehicleDescriptor)
     else:
-        descriptor = _vehicleDescriptor(hit.vehicleId, hit.vehicleDescr)
+        descriptor = _vehicleDescriptor(hit.vehicleId, hit.vehicleDescriptor)
     if descriptor is None:
         return None
     guns = [descriptor.gun]

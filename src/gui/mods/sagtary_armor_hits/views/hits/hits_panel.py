@@ -41,7 +41,7 @@ def _ownGoldKinds(battle):
     # The shell kinds of the player's gun in the battle that are only premium shells: a dealt hit recorded before the
     # mod knew the player's premium shells is gold by its kind.
     try:
-        descriptor = VehicleDescr(compactDescr=battle.vehicleDescr.decode('hex'))
+        descriptor = VehicleDescr(compactDescr=battle.vehicleDescriptor.decode('hex'))
     except Exception:
         return frozenset()
     kinds = set(shot.shell.kind for shot in descriptor.gun.shots)

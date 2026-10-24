@@ -15,7 +15,7 @@ from gui.mods.sagtary_armor_hits.data.hooks import ClientHooks
 from gui.mods.sagtary_armor_hits.views.hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.views.lobby_button.lobby_button import LobbyButton
 
-__version__ = '0.162.0'
+__version__ = '0.164.0'
 
 _logger = logging.getLogger('sagtary.armor_hits')
 

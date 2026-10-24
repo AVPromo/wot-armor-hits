@@ -62,7 +62,8 @@ def hitText(hit):
                                              point.end) for point in hit.points)
     devices = ', '.join('%s %s' % (device.extra or device.device, device.code) for device in hit.damagedDevices)
     return ('time %.2f, vehicle %s, player %s, shell %s%s, damage %s, blocked %s, crits %s, effects %s, splash %s, '
-            'distance %s, descr %s, points [%s], devices [%s], splash center %s, shot direction %s') % (
+            'distance %s, compact descriptor %s, points [%s], devices [%s], splash center %s, shot direction %s') % (
         hit.time, hit.vehicleId, hit.playerName, hit.shellType, ' gold' if hit.isGoldShell else '', hit.damage,
         hit.blockedDamage, hit.critsCount, effectsText(hit.hitEffects), hit.isSplash, hit.distance,
-        'yes' if hit.vehicleDescr else 'no', points, devices, hit.splashCenter or None, hit.shotDirection or None)
+        'yes' if hit.vehicleDescriptor else 'no', points, devices, hit.splashCenter or None,
+        hit.shotDirection or None)

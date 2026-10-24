@@ -25,6 +25,12 @@ from gui.mods.sagtary_armor_hits.data.record import Record
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
+# A vehicle's compact descriptor (items.vehicles.VehicleDescriptor.makeCompactDescr) starts with a header byte (the
+# item type, items.ITEM_TYPES.vehicle, in the low 4 bits, the nation in the high 4 bits, this flag when the vehicle type
+# id takes 2 bytes: items.vehicles.EXTENDED_VEHICLE_TYPE_ID_FLAG) and the vehicle type id.
+_VEHICLE_ITEM_TYPE = 1
+_EXTENDED_TYPE_ID = 2
+
 
 class HitResult(object):
     # The hit's result: damage, then the results of the client's armor tooltip for a hit without damage (the armor
@@ -61,8 +67,9 @@ class DamagedDevice(Record):
 class Hit(Record):
     FIELDS = (
         ('time', 0.0),          # seconds since the battle started (the arena's battle period)
-        ('vehicleId', 0),       # the other vehicle (intCD): the shooter of a received hit, the target of a dealt one
-        ('vehicleDescr', ''),   # the other vehicle's compact descriptor (its modules), hex; '' when not known
+        ('vehicleDescriptor', ''),
+                                # the other vehicle (the shooter of a received hit, the target of a dealt one): its
+                                # compact descriptor (type and modules), hex; '' when not known
         ('playerName', ''),     # the other vehicle's player
         ('shellType', ''),      # the shell kind, a constants.SHELL_TYPES name: ARMOR_PIERCING, HIGH_EXPLOSIVE, ...
         ('damage', 0),          # hit points the hit took
@@ -83,6 +90,11 @@ class Hit(Record):
     __slots__ = tuple(name for name, _ in FIELDS)
 
     @property
+    def vehicleId(self):
+        # The other vehicle's type (intCD), from its compact descriptor; 0 when not known.
+        return vehicleTypeId(self.vehicleDescriptor)
+
+    @property
     def result(self):
         # Without damage, the last point the shell hit tells what stopped it; a splash without damage is blocked.
         if self.damage > 0:
@@ -95,7 +107,7 @@ class Hit(Record):
         return HitResult.BLOCKED
 
 
-def vehicleDescr(descriptor):
+def compactDescriptor(descriptor):
     # The compact descriptor of a vehicle descriptor (its type and modules) as hex, '' without one.
     if descriptor is None:
         return ''
@@ -104,6 +116,20 @@ def vehicleDescr(descriptor):
     except Exception:
         _logger.exception('hits: no compact descriptor of %s', descriptor)
         return ''
+
+
+def vehicleTypeId(compactDescriptor):
+    # The vehicle type's intCD (items.makeIntCompactDescrByID) from the first bytes of a compact descriptor (hex), so
+    # without the client's cache; 0 without one.
+    if not compactDescriptor:
+        return 0
+    try:
+        data = bytearray(compactDescriptor.decode('hex'))
+        typeId = data[1] + (data[2] << 8 if data[0] & _EXTENDED_TYPE_ID else 0)
+    except (TypeError, ValueError, IndexError):
+        _logger.warning('hits: not a compact descriptor: %r', compactDescriptor)
+        return 0
+    return (typeId << 8) + (data[0] >> 4 << 4) + _VEHICLE_ITEM_TYPE
 
 
 def ownShellIsGold(descriptor, shellType, currentShellCD=None):
