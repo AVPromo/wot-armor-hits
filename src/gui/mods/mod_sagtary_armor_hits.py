@@ -5,9 +5,11 @@ Entry point loaded by the game; the code is in the gui.mods.sagtary_armor_hits p
 """
 import logging
 
+from PlayerEvents import g_playerEvents
+
 from gui.mods.sagtary_armor_hits import settings
 from gui.mods.sagtary_armor_hits.config import BATTLE_FILES_DIR
-from gui.mods.sagtary_armor_hits.data.battle_file import BattleFiles
+from gui.mods.sagtary_armor_hits.data.battle_file import BattleFileError, BattleFiles
 from gui.mods.sagtary_armor_hits.data.battles import BattleCollector, BattleStore
 from gui.mods.sagtary_armor_hits.data.debug_recorder import DebugRecorder
 from gui.mods.sagtary_armor_hits.data.hit_collector import HitCollector
@@ -15,7 +17,7 @@ from gui.mods.sagtary_armor_hits.data.hooks import ClientHooks
 from gui.mods.sagtary_armor_hits.views.hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.views.lobby_button.lobby_button import LobbyButton
 
-__version__ = '0.184.0'
+__version__ = '0.187.0'
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -39,6 +41,8 @@ _hitCollector = HitCollector(_battleStore, _hooks)
 _battleFiles = BattleFiles(BATTLE_FILES_DIR, __version__)
 _hitsScreen = HitsScreen(_battleStore, _battleFiles, _settings)
 _button = LobbyButton(_openViewer)
+# The battle files are loaded once a client session.
+_isImported = False
 
 
 def _onSettingChanged(key):
@@ -50,12 +54,43 @@ def _onSettingChanged(key):
             _debugRecorder.uninstall()
 
 
+def _onBattleLeft(battle):
+    # The battle's file when the player leaves a battle, with the autoSaveBattles setting; a replay is not saved (it
+    # would write over the file of the battle played).
+    if not _settings.values['autoSaveBattles'] or battle.isReplay:
+        return
+    try:
+        _battleFiles.save(battle)
+    except BattleFileError as error:
+        _logger.warning('auto save: %s', error)
+
+
+def _onAccountShowGUI(*args):
+    # The battle files of the folder when the hangar shows the first time: the battles saved before and the files
+    # other players sent. Not again after a battle: the battles of the session are in the store already.
+    global _isImported
+    if _isImported:
+        return
+    _isImported = True
+    try:
+        battles, errors = _battleFiles.loadAll()
+    except BattleFileError as error:
+        _logger.info('import: %s', error)
+        return
+    for _, error in errors:
+        _logger.warning('import: %s', error)
+    if battles:
+        _battleStore.addAll(battles)
+
+
 def init():
     # Called by gui.mods after all mods are imported.
     values = _settings.load()
     _settings.onChanged += _onSettingChanged
     if values['debug']:
         _debugRecorder.install()
+    _battleCollector.onBattleLeft += _onBattleLeft
+    g_playerEvents.onAccountShowGUI += _onAccountShowGUI
     _battleCollector.install()
     _hitCollector.install()
     _hitsScreen.install()
@@ -70,4 +105,6 @@ def fini():
     _debugRecorder.uninstall()
     _hitCollector.uninstall()
     _battleCollector.uninstall()
+    _battleCollector.onBattleLeft -= _onBattleLeft
+    g_playerEvents.onAccountShowGUI -= _onAccountShowGUI
     _hitsScreen.uninstall()

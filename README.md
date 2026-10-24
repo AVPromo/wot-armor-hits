@@ -33,6 +33,7 @@ Work in progress. Now the mod:
 
 ```json
 {
+    "autoSaveBattles": false,
     "debug": false,
     "showButtonInModsMenu": true,
     "showFriendlyFire": false
@@ -43,6 +44,11 @@ Work in progress. Now the mod:
   `false` keeps it in the hangar footer always. Takes effect when the game starts again.
 - `showFriendlyFire`: `true` shows the hits on allies and of allies in the hits list (they do no damage).
 - `debug`: `true` writes the debug record of every battle into `mods/sagtary_armor_hits/debug`.
+- `autoSaveBattles`: `true` saves every battle played (not a replay) to its file in `mods/sagtary_armor_hits/hits` when
+  you leave the battle, as the save button does.
+
+The battle files in `mods/sagtary_armor_hits/hits` are loaded when the hangar shows the first time after the game
+starts. The delete button of the settings menu deletes all the battles and their files, after a question.
 
 The file is read when the game starts. The settings menu of the hits screen (the gear right of the battle selector) changes them
 and writes the file.

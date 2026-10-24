@@ -3,9 +3,9 @@
 
 SettingsMenuPresenter fills the view model (views/models/settings_menu_model.py) with the settings of the settings
 file (settings.ModSettings), each on or off, and turns a setting over when the page tells it was clicked: ModSettings
-writes the file and tells its listeners. The hits on allies are shown or hidden at once (the hits panel), the debug
-record starts or stops at once (the entry module), the lobby button's place changes with the next client start (its
-note). The title is the client's text, the labels the mod's: the client has none for the hits both on allies and
+writes the file and tells its listeners. The hits on allies are shown or hidden at once (the hits panel), the auto
+save and the debug record start or stop at once (the entry module), the lobby button's place changes with the next
+client start (its note). The title is the client's text, the labels the mod's: the client has none for the hits both on allies and
 by them.
 """
 from gui.mods.sagtary_armor_hits.data.client_names import clientText
@@ -17,6 +17,7 @@ _TITLE_KEY = '#settings:title'
 # client start).
 _ITEMS = (
     ('showFriendlyFire', None, False),
+    ('autoSaveBattles', None, False),
     ('showButtonInModsMenu', None, True),
     ('debug', None, False),
 )

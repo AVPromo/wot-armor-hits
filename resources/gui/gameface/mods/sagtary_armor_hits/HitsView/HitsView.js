@@ -292,21 +292,41 @@ hitsPanel.querySelectorAll(".hitsPanel__tab").forEach((tab) => {
 hitsPanel.querySelector(".hitsPanel__prev").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: -1 }));
 hitsPanel.querySelector(".hitsPanel__next").addEventListener("click", () => window.model.hitsPanel.onStep({ delta: 1 }));
 
-// File buttons: save the chosen battle to its file, load the battle files (window.model.fileButtons); the save is off
-// without a battle.
+// File buttons: save the chosen battle to its file, delete all the battles (window.model.fileButtons); the save is off
+// without a battle, the delete without battles. The delete asks first: the question and its two choices in its place,
+// until a choice or the menu closes.
 const fileButtons = document.querySelector(".fileButtons");
+let isDeleteAsked = false;
+
+function setDeleteAsked(asked) {
+    isDeleteAsked = asked;
+    fileButtons.classList.toggle("fileButtons__asking", asked);
+}
 
 function drawFileButtons() {
     const model = window.model && window.model.fileButtons;
     fileButtons.classList.toggle("fileButtons__visible", Boolean(model));
     fileSave.classList.toggle("fileButtons__disabled", !(model && model.canSave));
+    fileDelete.classList.toggle("fileButtons__disabled", !(model && model.canDelete));
     fileButtons.querySelector(".fileButtons__saveLabel").textContent = model ? model.saveLabel : "";
-    fileButtons.querySelector(".fileButtons__importLabel").textContent = model ? model.importLabel : "";
+    fileButtons.querySelector(".fileButtons__deleteLabel").textContent = model ? model.deleteLabel : "";
+    fileButtons.querySelector(".fileButtons__confirmText").textContent = model ? model.confirmText : "";
+    fileButtons.querySelector(".fileButtons__choiceDelete").textContent = model ? model.confirmLabel : "";
+    fileButtons.querySelector(".fileButtons__choiceCancel").textContent = model ? model.cancelLabel : "";
+    if (isDeleteAsked && !(model && model.canDelete)) {
+        setDeleteAsked(false);
+    }
 }
 
 const fileSave = fileButtons.querySelector(".fileButtons__save");
 fileSave.addEventListener("click", () => window.model.fileButtons.onSave());
-fileButtons.querySelector(".fileButtons__import").addEventListener("click", () => window.model.fileButtons.onImport());
+const fileDelete = fileButtons.querySelector(".fileButtons__delete");
+fileDelete.addEventListener("click", () => setDeleteAsked(true));
+fileButtons.querySelector(".fileButtons__choiceDelete").addEventListener("click", () => {
+    setDeleteAsked(false);
+    window.model.fileButtons.onDelete();
+});
+fileButtons.querySelector(".fileButtons__choiceCancel").addEventListener("click", () => setDeleteAsked(false));
 
 // Overlay panel: the overlay type dropdown (window.model.overlayPanel). A click on
 // the dropdown opens its list, a click on a type chooses it (onSelect), a click elsewhere or Escape closes the list.
@@ -395,6 +415,9 @@ const settingsItems = settingsMenu.querySelector(".settingsMenu__items");
 
 function setSettingsOpen(open) {
     settingsButton.classList.toggle("settingsButton__open", open);
+    if (!open) {
+        setDeleteAsked(false);
+    }
 }
 
 function drawSettingsMenu() {

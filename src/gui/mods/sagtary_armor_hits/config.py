@@ -12,6 +12,9 @@ DEFAULT_SETTINGS = {
     'debug': False,
     # Show the hits on allies (and of allies on the player) in the hits list; they do no damage.
     'showFriendlyFire': False,
+    # Save every battle played (not a replay) to its battle file in BATTLE_FILES_DIR when the player leaves it, as the
+    # save button does.
+    'autoSaveBattles': False,
 }
 
 # Debug records (one JSON Lines file per battle), relative to the game folder.
@@ -20,8 +23,8 @@ RECORDS_DIR = 'mods/sagtary_armor_hits/debug'
 # Battles of the session kept for the hits screen (in memory), newest first.
 BATTLES_LIMIT = 50
 
-# Folder of the battle files of the hits screen's save and load buttons (one file per battle, a player sends it with a
-# report; the files put there are loaded), relative to the game folder.
+# Folder of the battle files of the hits screen's save button (one file per battle, a player sends it with a report;
+# the files put there are loaded when the hangar shows first), relative to the game folder.
 BATTLE_FILES_DIR = 'mods/sagtary_armor_hits/hits'
 
 # Id of the entry in the mods list (ModsList API, optional).
@@ -47,8 +50,9 @@ TEXTS = {
         'camera/shooter': u'Shooter view',
         'camera/reset': u'Reset',
         'file/save': u'Save battle',
-        'file/import': u'Import',
-        'file/imported': u'Armor Hits: %(count)s battles loaded from %(path)s',
+        'file/delete': u'Delete battles',
+        'file/deleteConfirm': u'Delete all battles and their files?',
+        'file/deleted': u'Armor Hits: battles deleted',
         'file/exported': u'Armor Hits: battle saved to %(path)s',
         'file/failed': u'Armor Hits: %(error)s',
         'shot/shooter': u'Shooter',
@@ -68,6 +72,7 @@ TEXTS = {
         'shot/distanceLoss': u'for the distance of %(distance)s m',
         'shot/deviation': u'from the average',
         'settings/showFriendlyFire': u'Show friendly fire',
+        'settings/autoSaveBattles': u'Save battles automatically',
         'settings/showButtonInModsMenu': u'Show the button in the mods menu',
         'settings/debug': u'Debug',
         'settings/restart': u'(game restart required)',
@@ -82,8 +87,9 @@ TEXTS = {
         'camera/shooter': u'Вид стрелка',
         'camera/reset': u'Сброс',
         'file/save': u'Сохранить бой',
-        'file/import': u'Импорт',
-        'file/imported': u'Armor Hits: загружено боёв: %(count)s, папка %(path)s',
+        'file/delete': u'Удалить бои',
+        'file/deleteConfirm': u'Удалить все бои и их файлы?',
+        'file/deleted': u'Armor Hits: бои удалены',
         'file/exported': u'Armor Hits: бой сохранён в %(path)s',
         'file/failed': u'Armor Hits: %(error)s',
         'shot/shooter': u'Стрелок',
@@ -103,6 +109,7 @@ TEXTS = {
         'shot/distanceLoss': u'за дистанцию %(distance)s м',
         'shot/deviation': u'от среднего',
         'settings/showFriendlyFire': u'Показывать огонь по своим',
+        'settings/autoSaveBattles': u'Автоматически сохранять бои',
         'settings/showButtonInModsMenu': u'Показывать кнопку в меню модов',
         'settings/debug': u'Дебаг',
         'settings/restart': u'(требуется перезапуск игры)',

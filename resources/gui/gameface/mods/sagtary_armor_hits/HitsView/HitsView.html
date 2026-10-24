@@ -20,8 +20,9 @@
                     <div class="settingsMenu">
                         <div class="settingsMenu__title"></div>
                         <div class="settingsMenu__items"></div>
-                        <!-- File buttons under the settings: save the chosen battle to its file (a disk), load the battle
-                             files (an arrow up); an icon and a label each (HitsView.js). -->
+                        <!-- File buttons under the settings: save the chosen battle to its file (a disk), delete all the
+                             battles (a bin; the question and its two choices in its place first); an icon and a label
+                             each (HitsView.js). -->
                         <div class="fileButtons">
                             <div class="fileButtons__button fileButtons__save">
                                 <div class="fileButtons__icon">
@@ -31,13 +32,20 @@
                                 </div>
                                 <div class="fileButtons__label fileButtons__saveLabel"></div>
                             </div>
-                            <div class="fileButtons__button fileButtons__import">
+                            <div class="fileButtons__button fileButtons__delete">
                                 <div class="fileButtons__icon">
-                                    <div class="fileButtons__shaft"></div>
-                                    <div class="fileButtons__head fileButtons__headUp"></div>
-                                    <div class="fileButtons__tray"></div>
+                                    <div class="fileButtons__binLid"></div>
+                                    <div class="fileButtons__binHandle"></div>
+                                    <div class="fileButtons__binBody"></div>
                                 </div>
-                                <div class="fileButtons__label fileButtons__importLabel"></div>
+                                <div class="fileButtons__label fileButtons__deleteLabel"></div>
+                            </div>
+                            <div class="fileButtons__confirm">
+                                <div class="fileButtons__confirmText"></div>
+                                <div class="fileButtons__choices">
+                                    <div class="fileButtons__choice fileButtons__choiceDelete"></div>
+                                    <div class="fileButtons__choice fileButtons__choiceCancel"></div>
+                                </div>
                             </div>
                         </div>
                     </div>

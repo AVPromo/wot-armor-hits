@@ -4,7 +4,7 @@ the battle on another client.
 
 BattleFiles keeps one file per battle in its folder, named by the battle id (FILE_NAME), so a battle saved again
 writes over its own file. Loading reads every file of the folder that has the name pattern (FILE_PATTERN): the files
-other players sent, put into the folder. A file:
+other players sent, put into the folder; deleting removes them all. A file:
     {
       "formatVersion": 1,         # version of this layout; a file of a newer layout is not read
       "appVersion": "0.1.0",      # version of the mod that wrote the file
@@ -128,3 +128,15 @@ class BattleFiles(object):
         _logger.info('battle file: %d battles read from %d of %d files in %s', len(battles),
                      len(paths) - len(errors), len(paths), self._folder)
         return battles, errors
+
+    def deleteAll(self):
+        # Removes all the folder's files: [error] of the files not removed.
+        errors = []
+        paths = glob.glob(os.path.join(self._folder, FILE_PATTERN))
+        for path in paths:
+            try:
+                os.remove(path)
+            except OSError as error:
+                errors.append(BattleFileError('cannot delete %s: %s' % (path, error)))
+        _logger.info('battle file: %d of %d files deleted in %s', len(paths) - len(errors), len(paths), self._folder)
+        return errors

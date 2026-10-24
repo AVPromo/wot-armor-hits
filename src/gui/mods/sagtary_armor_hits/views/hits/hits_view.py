@@ -49,7 +49,8 @@ _SHOT_TEXTS = ('shot/shooter', 'shot/target', 'shot/damage', 'shot/penetration',
                'shot/distance', 'shot/crits', 'shot/avgDamage', 'shot/avgPenetration',
                'shot/chance', 'shot/nominal', 'shot/angleArmor', 'shot/ricochet', 'shot/distanceLoss', 'shot/deviation')
 # The settings menu's texts.
-_SETTINGS_TEXTS = ('settings/showFriendlyFire', 'settings/showButtonInModsMenu', 'settings/debug', 'settings/restart')
+_SETTINGS_TEXTS = ('settings/showFriendlyFire', 'settings/autoSaveBattles', 'settings/showButtonInModsMenu',
+                   'settings/debug', 'settings/restart')
 
 
 class HitsView(ViewComponent):
@@ -109,8 +110,10 @@ class HitsView(ViewComponent):
             (key.split('/')[1], text(key)) for key in _SHOT_TEXTS))
         self._presenters.append(self._shotPanel)
         if self._battleFiles is not None:
-            self._presenters.append(FileButtonsPresenter(model.fileButtons, self._battleStore, self._battleFiles, hitsPanel, {
-                'save': text('file/save'), 'import': text('file/import'), 'imported': text('file/imported'), 'exported': text('file/exported'), 'failed': text('file/failed')}))
+            self._presenters.append(FileButtonsPresenter(model.fileButtons, self._battleStore, self._battleFiles,
+                                                         hitsPanel, {
+                'save': text('file/save'), 'delete': text('file/delete'), 'deleteConfirm': text('file/deleteConfirm'),
+                'deleted': text('file/deleted'), 'exported': text('file/exported'), 'failed': text('file/failed')}))
         if self._settings is not None:
             self._presenters.append(SettingsMenuPresenter(model.settingsMenu, self._settings, dict(
                 (key.split('/')[1], text(key)) for key in _SETTINGS_TEXTS)))

@@ -6,7 +6,8 @@
 - BattleStore: the battles of this session in memory, newest first, up to BATTLES_LIMIT. It tells its listeners
   when the list changes (onChanged). The store is not saved by itself; battle_file.py writes and reads it on demand.
 - BattleCollector: adds a Battle to the store when the player enters a battle or starts a replay, and writes the
-  winner to it when the round finishes. A battle the player left before its end has no winner (result UNKNOWN).
+  winner to it when the round finishes. A battle the player left before its end has no winner (result UNKNOWN). It
+  tells its listeners when the player leaves the battle (onBattleLeft, with the battle as it is in the store).
 """
 import logging
 import time
@@ -150,6 +151,7 @@ class BattleCollector(object):
         self._store = store
         # Id of the battle the player is in, None out of battle.
         self._battleId = None
+        self.onBattleLeft = Event()
 
     def install(self):
         g_playerEvents.onAvatarReady += self._onAvatarReady
@@ -181,4 +183,7 @@ class BattleCollector(object):
                      winnerTeam, reason)
 
     def _onAvatarBecomeNonPlayer(self, *args):
+        battle = self._store.getBattle(self._battleId) if self._battleId is not None else None
         self._battleId = None
+        if battle is not None:
+            self.onBattleLeft(battle)
