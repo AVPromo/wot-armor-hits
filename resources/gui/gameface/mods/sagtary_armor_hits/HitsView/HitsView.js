@@ -537,7 +537,7 @@ function drawShotPanel() {
         }
         shotSections.appendChild(head);
         if (section.kind === "crits") {
-            drawDevices(arrayItems(model.devices));
+            drawDevices(model);
         }
         arrayItems(section.rows).forEach((item) => {
             const row = element("div", "shotPanel__row");
@@ -550,43 +550,36 @@ function drawShotPanel() {
     });
 }
 
-// The modules and crew the shot damaged, in the crits section: a tile per module kind or crew role, the battle damage
-// panel's icon at the worst state, under it a line per damaged part or crew member in its state's color (the text's
-// lines, "state<TAB>name"); rows of four, the crew in rows of its own under a line.
-function deviceTile(device) {
-    const tile = element("div", "shotPanel__device");
-    const icon = element("div", "shotPanel__deviceIcon");
-    icon.style.backgroundImage = `url(img://gui/maps/sagtary_armor_hits/modules/${device.icon}.png)`;
-    tile.appendChild(icon);
-    device.text.split("\n").forEach((line) => {
-        const [state, name] = line.split("\t");
-        tile.appendChild(element("div", `shotPanel__deviceName shotPanel__deviceState__${state}`, name));
-    });
-    return tile;
-}
-
-function deviceRows(className, devices) {
-    const box = element("div", className);
-    let row = null;
+// The modules and crew the shot damaged, in the crits section: the modules, then the crew under a line; two cells a
+// row, in a cell the battle damage panel's icon (its color tells the state) and the names right of it, a line each,
+// both at the top.
+function deviceBlock(devices) {
+    const box = element("div", "shotPanel__devices");
     devices.forEach((device) => {
-        if (!row || row.childNodes.length === 4) {
-            row = element("div", "shotPanel__deviceRow");
-            box.appendChild(row);
-        }
-        row.appendChild(deviceTile(device));
+        const cell = element("div", "shotPanel__deviceCell");
+        const icon = element("div", "shotPanel__deviceIcon");
+        icon.style.backgroundImage = `url(img://gui/maps/sagtary_armor_hits/modules/${device.icon}.png)`;
+        cell.appendChild(icon);
+        const names = element("div", "shotPanel__deviceNames");
+        device.text.split("\n").forEach((name) => names.appendChild(element("div", "shotPanel__deviceName", name)));
+        cell.appendChild(names);
+        box.appendChild(cell);
     });
-    return box;
+    shotSections.appendChild(box);
 }
 
-function drawDevices(devices) {
+function drawDevices(model) {
+    const devices = arrayItems(model.devices);
     const modules = devices.filter((device) => !device.isCrew);
     const crew = devices.filter((device) => device.isCrew);
     if (modules.length) {
-        shotSections.appendChild(deviceRows("shotPanel__devices", modules));
+        deviceBlock(modules);
+    }
+    if (modules.length && crew.length) {
+        shotSections.appendChild(element("div", "shotPanel__deviceLine"));
     }
     if (crew.length) {
-        shotSections.appendChild(deviceRows(modules.length ? "shotPanel__devices shotPanel__crew" : "shotPanel__devices",
-                                            crew));
+        deviceBlock(crew);
     }
 }
 

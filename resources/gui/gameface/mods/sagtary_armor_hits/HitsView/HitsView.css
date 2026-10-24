@@ -1331,58 +1331,48 @@ body {
     color: var(--color-general-tertiary);
 }
 
-/* The modules and crew the shot damaged: rows of up to four tiles, centred, the crew under a line. A tile is the
-   battle damage panel's icon (46 x 40) with the damaged parts' or crew members' names under it in their state's color. */
+/* The modules and crew the shot damaged: the modules, the crew under a line; two cells a row, the battle damage
+   panel's icon (37 x 32, its color tells the state) and the names right of it, at the top. */
 .shotPanel__devices {
     display: flex;
-    flex-direction: column;
-    padding: 8rem 12rem 0 12rem;
+    flex-wrap: wrap;
+    padding: 6rem 0 4rem 12rem;
 }
 
-.shotPanel__crew {
-    margin: 0 12rem;
-    padding: 8rem 0 0 0;
-    border-top: 1rem solid rgba(255, 255, 255, 0.08);
+.shotPanel__deviceLine {
+    height: 1rem;
+    margin: 4rem 12rem 0 12rem;
+    background-color: rgba(255, 255, 255, 0.08);
 }
 
-.shotPanel__deviceRow {
+.shotPanel__deviceCell {
     display: flex;
-    justify-content: center;
     align-items: flex-start;
-}
-
-.shotPanel__device {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 76rem;
-    margin: 0 2rem 8rem 2rem;
-    flex-shrink: 0;
+    width: 50%;
+    padding: 2rem 12rem 2rem 0;
+    box-sizing: border-box;
 }
 
 .shotPanel__deviceIcon {
-    width: 46rem;
-    height: 40rem;
-    margin-bottom: 2rem;
+    width: 37rem;
+    height: 32rem;
+    flex-shrink: 0;
     background-repeat: no-repeat;
     background-position: center;
-    background-size: 46rem 40rem;
+    background-size: 37rem 32rem;
+}
+
+.shotPanel__deviceNames {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 7rem 0 0 8rem;
 }
 
 .shotPanel__deviceName {
-    width: 76rem;
-    font-size: 12rem;
-    line-height: 1.25;
-    text-align: center;
-}
-
-.shotPanel__deviceState__critical,
-.shotPanel__deviceState__wounded {
-    color: #f2a93b;
-}
-
-.shotPanel__deviceState__destroyed {
-    color: #f0603f;
+    font-size: 14rem;
+    line-height: 17rem;
+    color: var(--color-general-primary);
 }
 
 /* A value counted in the garage, not told by the battle. */

@@ -163,10 +163,14 @@ def _worst(states):
     return max(states or ['normal'], key=_STATES.index)
 
 
+def _sentence(text):
+    # The first letter capital, the rest small: the client's names come in either case ('engine', 'Fuel Tank').
+    return text[:1].upper() + text[1:].lower()
+
+
 def _devices(descriptor, hit):
-    # [(icon, is crew, lines)] of the module kinds and crew roles the hit's shot damaged, in the grid's order: the icon
-    # at the worst state of the damaged parts, a line per damaged part or crew member, 'state<TAB>name' (the state for
-    # the page's color, the client's name), '\n' between.
+    # [(icon, is crew, text)] of the module parts and crew members the hit's shot damaged, in the battle damage panel's
+    # order: a part's icon at its state and its client name; a crew member's role icon and its roles, '\n' between.
     states = {}
     for device in hit.damagedDevices:
         state = _CODE_STATES.get(device.code)
@@ -184,17 +188,14 @@ def _devices(descriptor, hit):
         damaged = [(name, states[name]) for name in names if states.get(name, 'normal') != 'normal']
         if not damaged:
             continue
-        lines = []
         for name, state in damaged:
             _, base, number = _part(name)
             label = clientText(_PART_NAME_KEYS.get(base) or _DEVICE_NAME_KEY % _DEVICE_KEYS.get(base, base)) or base
             if base == 'wheel':
                 label = u'%s %d' % (label, number + 1)
-            lines.append(u'\t'.join((state, label)))
-        icon = ('chassis' if kind == 'track' else kind) + _ICON_SUFFIXES[_worst([state for _, state in damaged])]
-        tiles.append((icon, False, u'\n'.join(lines)))
-    # The crew by role, in the vehicle's order: the members of one role (two loaders) under one icon.
-    roles, members = [], {}
+            icon = ('chassis' if kind == 'track' else kind) + _ICON_SUFFIXES[state]
+            tiles.append((icon, False, _sentence(label)))
+    # The crew in the vehicle's order, a member a tile.
     for memberRoles, extra in zip(vehicleType.crewRoles, vehicleType.tankmen):
         if states.get(extra.name, 'normal') == 'normal':
             continue
@@ -202,11 +203,8 @@ def _devices(descriptor, hit):
         label = clientText(_CREW_STATE_KEY % (name, 'normal')) or clientText(_CREW_NAME_KEY % memberRoles[0]) or name
         # A member in several roles (a commander who is the radio operator too): all of them.
         others = [clientText(_CREW_NAME_KEY % role) for role in memberRoles[1:]]
-        label = u' / '.join([label] + [other for other in others if other])
-        if memberRoles[0] not in members:
-            roles.append(memberRoles[0])
-        members.setdefault(memberRoles[0], []).append(u'\t'.join(('wounded', label)))
-    tiles.extend((role + '_orange', True, u'\n'.join(members[role])) for role in roles)
+        roles = [_sentence(text) for text in [label] + others if text]
+        tiles.append((memberRoles[0] + '_orange', True, u'\n'.join(roles)))
     return tiles
 
 

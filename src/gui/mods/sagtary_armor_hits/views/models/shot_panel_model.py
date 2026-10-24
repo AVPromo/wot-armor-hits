@@ -181,8 +181,8 @@ class ShotSectionModel(ViewModel):
 
 class ShotDeviceModel(ViewModel):
     # A tile of the modules and crew section: the icon of the battle damage panel (gui/maps/sagtary_armor_hits/modules/
-    # <icon>.png: the kind and its state), a crew role or a module kind, and the lines of its damaged parts or crew
-    # members ('state<TAB>name', '\n' between).
+    # <icon>.png: the kind and its state), a crew member or a module part, and its names (a crew member's roles, '\n'
+    # between).
     __slots__ = ()
 
     def __init__(self, properties=3, commands=0):
