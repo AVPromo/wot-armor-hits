@@ -1,25 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Scene lines: dashed tubes in the 3D scene, drawn with the client's debug drawer.
+"""Scene lines: shapes in the 3D scene, drawn with the client's debug drawer.
 
 The client's armor overlay (armor_inspector) colors the vehicle after the scene's models, so it covers any model, with
 any shader. The client's debug drawer (the native DebugDrawer module, used by the hangar camera alignment tools)
 draws in a pass of its own after it, so its shapes stay over the overlay; tested against the scene's depth (zTest),
-they are still hidden behind the vehicle. A line is a cylinder between two points, _RADIUS thick
-(DebugDrawer.DebugDrawer().cylinder()). Its shapes last one frame, so SceneLines draws them again on every frame
-(BigWorld.callback) while it has pieces.
+they are still hidden behind the vehicle. Its shapes last one frame, so SceneLines draws them again on every frame
+(BigWorld.callback) while it has some.
 
-A piece is dashed in its colors in turn, _DASH metres a dash from its start; a piece of one color is solid.
+The debug drawer has cylinders and spheres; SceneLines builds the others from cylinders: a dashed tube (dashes of
+_DASH metres in colors in turn, or gaps) and a ring (a circle of short cylinders around an axis).
 """
 import logging
 import math
 
 import BigWorld
+import Math
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
-# Metres: the length of a dash, the radius of a line.
+# Metres: the length of a dash. The pieces of a ring.
 _DASH = 0.1
-_RADIUS = 0.009
+_RING_STEPS = 40
 
 
 def _cylinder(builder, start, end):
@@ -30,47 +31,91 @@ def _cylinder(builder, start, end):
         return builder.endPoints([start, end])
 
 
+def _unit(vector):
+    vector = Math.Vector3(vector)
+    vector.normalise()
+    return vector
+
+
+def _cross(a, b):
+    return Math.Vector3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+
+
+def _basis(axis):
+    # Two unit vectors square to the axis and to each other.
+    other = Math.Vector3(0.0, 1.0, 0.0) if abs(axis.y) < 0.9 else Math.Vector3(1.0, 0.0, 0.0)
+    first = _unit(_cross(axis, other))
+    return first, _cross(axis, first)
+
+
 class SceneLines(object):
 
     def __init__(self):
-        # [(start, end, argb)]: the dashes to draw.
-        self._dashes = []
+        # [(kind, ...)]: the shapes to draw: ('tube', start, end, argb, radius), ('sphere', centre, size, argb,
+        # wireframe).
+        self._shapes = []
         self._callbackID = None
 
     def __len__(self):
-        return len(self._dashes)
+        return len(self._shapes)
 
-    def add(self, start, end, colours):
-        # A piece of a way: dashed in the colors (ARGB) in turn, solid in one color.
+    def tube(self, start, end, colour, radius):
+        if (end - start).length >= 1e-4:
+            self._shapes.append(('tube', Math.Vector3(start), Math.Vector3(end), colour, radius))
+            self._start()
+
+    def dashed(self, start, end, colours, radius):
+        # Dashes in the colors in turn from the start, None a gap; one color is a solid tube.
         length = (end - start).length
         if length < 1e-4:
             return
         if len(colours) == 1:
-            self._dashes.append((start, end, colours[0]))
-        else:
-            direction = (end - start) * (1.0 / length)
-            for index in range(int(math.ceil(length / _DASH - 1e-6))):
-                dashStart = start + direction * (index * _DASH)
-                dashEnd = start + direction * min(length, (index + 1) * _DASH)
-                if (dashEnd - dashStart).length >= 1e-4:
-                    self._dashes.append((dashStart, dashEnd, colours[index % len(colours)]))
-        if self._callbackID is None:
-            self._callbackID = BigWorld.callback(0.0, self._onFrame)
+            self.tube(start, end, colours[0], radius)
+            return
+        direction = (end - start) * (1.0 / length)
+        for index in range(int(math.ceil(length / _DASH - 1e-6))):
+            colour = colours[index % len(colours)]
+            if colour is not None:
+                self.tube(start + direction * (index * _DASH), start + direction * min(length, (index + 1) * _DASH),
+                          colour, radius)
+
+    def sphere(self, centre, size, colour, wireframe=False):
+        self._shapes.append(('sphere', Math.Vector3(centre), size, colour, wireframe))
+        self._start()
+
+    def ring(self, centre, axis, ringRadius, colour, radius):
+        # A circle of ringRadius around the axis through the centre.
+        first, second = _basis(_unit(axis))
+        points = [centre + (first * math.cos(angle) + second * math.sin(angle)) * ringRadius
+                  for angle in (2.0 * math.pi * index / _RING_STEPS for index in range(_RING_STEPS + 1))]
+        for start, end in zip(points, points[1:]):
+            self.tube(start, end, colour, radius)
 
     def clear(self):
-        self._dashes = []
+        self._shapes = []
         if self._callbackID is not None:
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
 
+    def _start(self):
+        if self._callbackID is None:
+            self._callbackID = BigWorld.callback(0.0, self._onFrame)
+
     def _onFrame(self):
         self._callbackID = None
-        if not self._dashes:
+        if not self._shapes:
             return
         try:
             import DebugDrawer
-            for start, end, colour in self._dashes:
-                _cylinder(DebugDrawer.DebugDrawer().cylinder().zTest(True).colour(colour), start, end).radius(_RADIUS)
+            for shape in self._shapes:
+                if shape[0] == 'tube':
+                    _, start, end, colour, radius = shape
+                    builder = DebugDrawer.DebugDrawer().cylinder().zTest(True).colour(colour)
+                    _cylinder(builder, start, end).radius(radius)
+                else:
+                    _, centre, size, colour, wireframe = shape
+                    builder = DebugDrawer.DebugDrawer().sphere().zTest(True).wireframe(wireframe).colour(colour)
+                    builder.position(centre).scale(Math.Vector3(size, size, size))
         except Exception:
             _logger.exception('scene lines: cannot draw')
             return

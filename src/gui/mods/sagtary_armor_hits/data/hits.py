@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """Hits of a battle: the shells that hit the player's vehicle and the shells the player hit other vehicles with.
 
+The hits' data, as the battle files keep it (Record); hit_parser.py makes them from the server's calls,
+hit_collector.py in battle.
+
 - Hit: one hit, read from the client when the server tells about it (Vehicle.showDamageFromShot for a shell that hit,
   Vehicle.showDamageFromExplosion for a high explosive splash). It keeps what the server sent; its result is worked
   out from that, like the client's armor tooltip tells a shot: damage, not pierced, a ricochet, or no damage.
@@ -13,36 +16,12 @@
   turret and the gun angles: the hit keeps the other vehicle's compact descriptor for that. The server packs a
   point to 1/255 of the part's size on each axis, so the direction along a short way is off by a degree or so: the
   hit keeps the shell's exact direction at its first point too (Hit.shotDirection), from the shell's tracer.
-- HitCollector: adds the hits of the battle the player is in to its Battle in the BattleStore: receivedHits (the
-  player's vehicle was hit) and dealtHits (the player's vehicle hit another one). The client knows the hits on the
-  vehicles it sees, so all the player's hits are there, and the hits on the player's vehicle; not those on a
-  vehicle already destroyed (a wreck takes no damage, the server tells it as pierced without damage). The client's
-  battle events (PlayerAvatar.onBattleEvents, the source of its damage log) add the crits, a premium shell and the
-  blocked damage to the hit of the same vehicle that comes within _PAIRING_TIME before or after; the client's damage
-  info of the player's vehicle (PlayerAvatar.showVehicleDamageInfo) adds the modules and crew the shell damaged, the
-  same way. The client tells which modules it damaged only on the player's own vehicle. The distance is between the two
-  vehicles when the hit comes, when the client sees the shooter. A splash keeps where the shell burst, in the hit
-  vehicle's chassis space (like the points), even when it burst on the ground nearby. The shooter's tracer
-  (PlayerAvatar.showTracer: where the shell starts, its velocity and gravity, as floats) gives the shell's direction
-  at the first point: the tracer whose way passes the point nearest, within _TRACER_MISS metres; none when the client
-  had no such tracer.
 """
 import logging
-import math
 
-import BigWorld
-import Math
-from Avatar import PlayerAvatar
-from BattleFeedbackCommon import BATTLE_EVENT_TYPE, NONE_SHELL_TYPE
-from constants import ARENA_PERIOD, DAMAGE_INFO_CODES, SHELL_TYPES, SHELL_TYPES_LIST, VEHICLE_HIT_EFFECT
-from items.vehicles import DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES
-from PlayerEvents import g_playerEvents
-from Vehicle import Vehicle
-from VehicleEffects import DamageFromShotDecoder
-from vehicle_systems.tankStructure import TankPartIndexes, TankPartNames
+from constants import VEHICLE_HIT_EFFECT
 
 from gui.mods.sagtary_armor_hits.data.record import Record
-from gui.mods.sagtary_armor_hits.trace import calls, hitText
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -55,11 +34,6 @@ class HitResult(object):
     RICOCHET = 'ricochet'
     NO_DAMAGE = 'noDamage'
     ALL = (DAMAGE, BLOCKED, RICOCHET, NO_DAMAGE)
-
-
-# Decimals of the hit point coordinates in metres: the server sends them to about 1 cm; of a direction's.
-_POINT_DECIMALS = 3
-_DIRECTION_DECIMALS = 4
 
 
 class HitPoint(Record):
@@ -121,11 +95,6 @@ class Hit(Record):
         return HitResult.BLOCKED
 
 
-def _shellType(index):
-    # SHELL_TYPES_LIST index of a decoded hit point, as the shell kind name.
-    return SHELL_TYPES_LIST[index] if 0 <= index < len(SHELL_TYPES_LIST) else ''
-
-
 def vehicleDescr(descriptor):
     # The compact descriptor of a vehicle descriptor (its type and modules) as hex, '' without one.
     if descriptor is None:
@@ -135,97 +104,6 @@ def vehicleDescr(descriptor):
     except Exception:
         _logger.exception('hits: no compact descriptor of %s', descriptor)
         return ''
-
-
-def _vector(vector):
-    return tuple(round(value, _POINT_DECIMALS) for value in (vector.x, vector.y, vector.z))
-
-
-def _chassisPoint(vehicle, point):
-    # A point of the scene in the vehicle's chassis space (the node the client puts the chassis hit effects on, else
-    # the vehicle's own matrix), () when not known.
-    try:
-        nodeName = TankPartNames.getActualNodeNameByPartName(TankPartNames.CHASSIS)
-        matrix = Math.Matrix(vehicle.appearance.compoundModel.node(nodeName))
-    except Exception:
-        try:
-            matrix = Math.Matrix(vehicle.matrix)
-        except Exception:
-            _logger.debug('hits: no matrix of vehicle %s', vehicle.id, exc_info=True)
-            return ()
-    matrix.invert()
-    return _vector(matrix.applyPoint(Math.Vector3(point)))
-
-
-def _battleTime(arena):
-    # Seconds since the battle period started; 0 before it.
-    if arena is None or arena.period != ARENA_PERIOD.BATTLE:
-        return 0.0
-    return max(0.0, BigWorld.serverTime() - (arena.periodEndTime - arena.periodLength))
-
-
-# The client's battle events (BattleFeedbackCommon.BATTLE_EVENT_TYPE) that tell more about a hit: the side of the
-# hit; the event's targetID is the other vehicle (the target of the player's hit, the attacker of a received one).
-_EVENT_SIDES = {
-    BATTLE_EVENT_TYPE.DAMAGE: 'dealtHits',
-    BATTLE_EVENT_TYPE.CRIT: 'dealtHits',
-    BATTLE_EVENT_TYPE.RECEIVED_DAMAGE: 'receivedHits',
-    BATTLE_EVENT_TYPE.RECEIVED_CRIT: 'receivedHits',
-    BATTLE_EVENT_TYPE.TANKING: 'receivedHits',
-}
-_CRIT_EVENTS = (BATTLE_EVENT_TYPE.CRIT, BATTLE_EVENT_TYPE.RECEIVED_CRIT)
-# The client's damage info codes of a shell have this in their names (DEVICE_CRITICAL_AT_SHOT, DEATH_FROM_SHOT, ...).
-_SHOT_CODE = 'SHOT'
-# {vehicle extra name: device or crew kind}
-_EXTRA_DEVICES = dict((extra, device) for device, extras in DEVICE_TANKMAN_NAMES_TO_VEHICLE_EXTRA_NAMES.items()
-                      for extra in extras)
-# The server tells the event and the client shows the shell hit at about the same time, either one first (the hit
-# waits for the shell's flight): an event and a hit of the same vehicle within this many seconds are one hit.
-_PAIRING_TIME = 1.5
-# Seconds a shooter's tracer is kept for its hit (an artillery shell flies a few seconds); metres its way may pass the
-# hit point by (the point is packed to about 1-4 cm, the vehicle moves) and still be the hit's shell.
-_TRACER_TIME = 10.0
-_TRACER_MISS = 2.5
-
-
-def _withInfo(hit, info):
-    # The hit with the info of an event: the damaged devices are added to those it has, the others replaced.
-    devices = info.get('damagedDevices')
-    if devices:
-        info = dict(info, damagedDevices=hit.damagedDevices + devices)
-    return hit.replace(**info)
-
-
-def _partMatrix(vehicle, part):
-    # The world matrix of the node the client puts the hit effects of the vehicle's part on (its points' space); None.
-    try:
-        nodeName = TankPartNames.getActualNodeNameByPartName(TankPartIndexes.getName(part))
-        return Math.Matrix(vehicle.appearance.compoundModel.node(nodeName))
-    except Exception:
-        _logger.debug('hits: no node of part %s of vehicle %s', part, vehicle.id, exc_info=True)
-        return None
-
-
-def _distance(vehicleID, otherID):
-    # Metres between two vehicles the client sees, 0 when it does not see one of them.
-    vehicle, other = BigWorld.entities.get(vehicleID), BigWorld.entities.get(otherID)
-    if vehicle is None or other is None:
-        return 0.0
-    return round((vehicle.position - other.position).length, 1)
-
-
-def _eventInfo(eventType, details):
-    # {Hit field: value} of a battle event: crits, a premium shell, the damage the armor blocked. The events of the
-    # player's own hits do not tell the shell (NONE_SHELL_TYPE): no premium flag from them.
-    if eventType in _CRIT_EVENTS:
-        critsCount, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackCrits(details)[:4]
-        info = {'critsCount': critsCount}
-    else:
-        damage, _, _, shellTypeID, isGold = BATTLE_EVENT_TYPE.unpackDamage(details)[:5]
-        info = {'blockedDamage': damage} if eventType == BATTLE_EVENT_TYPE.TANKING else {}
-    if shellTypeID != NONE_SHELL_TYPE:
-        info['isGoldShell'] = bool(isGold)
-    return info
 
 
 def ownShellIsGold(descriptor, shellType, currentShellCD=None):
@@ -238,216 +116,3 @@ def ownShellIsGold(descriptor, shellType, currentShellCD=None):
         if shell.compactDescr == currentShellCD:
             return bool(shell.isGold)
     return None
-
-
-class HitCollector(object):
-
-    def __init__(self, store):
-        self._store = store
-        # {(class, method name): original function}
-        self._originals = {}
-        # {(side field, other vehicle id): (server time, battle id, hit index)}: the last hit, for the events after it.
-        self._lastHits = {}
-        # {(side field, other vehicle id): [(server time, info)]}: events that came before their hit.
-        self._pendingEvents = {}
-        # {shooter id: [(server time, start, velocity, gravity)]}: the shells in flight, their tracers.
-        self._tracers = {}
-
-    def install(self):
-        for name in ('showDamageFromShot', 'showDamageFromExplosion'):
-            self._wrap(Vehicle, name, self._onVehicleHit)
-        self._wrap(PlayerAvatar, 'onBattleEvents', self._onBattleEvents)
-        self._wrap(PlayerAvatar, 'showVehicleDamageInfo', self._onDamageInfo)
-        self._wrap(PlayerAvatar, 'showTracer', self._onTracer)
-        g_playerEvents.onAvatarBecomeNonPlayer += self._reset
-
-    def uninstall(self):
-        g_playerEvents.onAvatarBecomeNonPlayer -= self._reset
-        for (cls, name), original in self._originals.items():
-            setattr(cls, name, original)
-        self._originals = {}
-        self._reset()
-
-    def _reset(self, *args):
-        self._lastHits = {}
-        self._pendingEvents = {}
-        self._tracers = {}
-
-    def _wrap(self, cls, name, handler):
-        if name not in cls.__dict__:
-            _logger.warning('hits: %s.%s not in this client', cls.__name__, name)
-            return
-        original = cls.__dict__[name]
-
-        def wrapper(entity, *args, **kwargs):
-            try:
-                calls('hits: %s' % name, quiet=True)
-                handler(name, entity, args, kwargs)
-            except Exception:
-                _logger.exception('hits: cannot read %s.%s', cls.__name__, name)
-            return original(entity, *args, **kwargs)
-
-        wrapper.__name__ = name
-        self._originals[(cls, name)] = original
-        setattr(cls, name, wrapper)
-
-    def _onVehicleHit(self, name, vehicle, args, kwargs):
-        player = BigWorld.player()
-        playerVehicleID = getattr(player, 'playerVehicleID', None)
-        attackerID = _argument(args, kwargs, 0, 'attackerID')
-        if vehicle.id == playerVehicleID:
-            field, otherID = 'receivedHits', attackerID
-        elif attackerID == playerVehicleID:
-            field, otherID = 'dealtHits', vehicle.id
-        else:
-            return
-        # A shell on a destroyed vehicle does nothing: not a hit. The shell that destroys it comes while it is alive.
-        if not vehicle.isAlive():
-            _logger.info('hits: %s of vehicle %s on a destroyed vehicle: skipped', field, otherID)
-            return
-        battle = self._store.getBattle(player.arenaUniqueID)
-        if battle is None:
-            return
-        if name == 'showDamageFromShot':
-            hit = self._shotHit(vehicle, args, kwargs)
-            if hit.points:
-                hit = hit.replace(shotDirection=self._shotDirection(vehicle, attackerID, hit.points[0]))
-            if field == 'dealtHits':
-                hit = hit.replace(isGoldShell=self._ownShellIsGold(player, hit.shellType))
-        else:
-            center = _argument(args, kwargs, 1, 'center')
-            hit = Hit(shellType=SHELL_TYPES.HIGH_EXPLOSIVE, damage=_argument(args, kwargs, 3, 'damage') or 0,
-                      isSplash=True, splashCenter=_chassisPoint(vehicle, center) if center is not None else ())
-        arenaVehicle = player.arena.vehicles.get(otherID) or {}
-        descriptor = arenaVehicle.get('vehicleType')
-        hit = hit.replace(time=_battleTime(player.arena), playerName=arenaVehicle.get('name') or '',
-                          vehicleId=descriptor.type.compactDescr if descriptor is not None else 0,
-                          vehicleDescr=vehicleDescr(descriptor), distance=_distance(vehicle.id, attackerID))
-        key, now = (field, otherID), BigWorld.serverTime()
-        for eventTime, info in self._pendingEvents.pop(key, ()):
-            if now - eventTime <= _PAIRING_TIME:
-                hit = _withInfo(hit, info)
-        hits = getattr(battle, field) + (hit,)
-        self._lastHits[key] = (now, battle.battleId, len(hits) - 1)
-        _logger.info('hits: %s #%d of vehicle %s: %s', field, len(hits), otherID, hitText(hit))
-        self._store.update(battle.replace(**{field: hits}))
-
-    @staticmethod
-    def _ownShellIsGold(player, shellType):
-        # The player's shell of a dealt hit: the server does not tell whether it was a premium one.
-        try:
-            ammo = player.guiSessionProvider.shared.ammo
-            isGold = ownShellIsGold(player.vehicleTypeDescriptor, shellType, ammo.getCurrentShellCD())
-        except Exception:
-            _logger.debug('hits: no shell of the player', exc_info=True)
-            isGold = None
-        return bool(isGold)
-
-    @staticmethod
-    def _shotHit(vehicle, args, kwargs):
-        hitPoints = _argument(args, kwargs, 1, 'hitPoints') or ()
-        collisions = vehicle.appearance.collisions if getattr(vehicle, 'appearance', None) is not None else None
-        effects, points, shellType = [], [], ''
-        if collisions is not None:
-            for hitPoint in hitPoints:
-                parsed = DamageFromShotDecoder.parseHitPoint(hitPoint, collisions)
-                if parsed is None:
-                    continue
-                part, effect, start, end = parsed[:4]
-                effects.append(effect)
-                shellType = shellType or _shellType(parsed[5])
-                # A dynamic part (negative index) is not one of the vehicle's own parts.
-                if 0 <= part < len(TankPartIndexes.ALL):
-                    points.append(HitPoint(part=part, start=_vector(start), end=_vector(end), effect=effect))
-        return Hit(damage=_argument(args, kwargs, 4, 'damage') or 0, shellType=shellType, hitEffects=tuple(effects),
-                   points=tuple(points))
-
-    def _onTracer(self, name, avatar, args, kwargs):
-        # A shell in flight, not one going on after a ricochet: where it starts and its velocity.
-        if _argument(args, kwargs, 2, 'isRicochet'):
-            return
-        now = BigWorld.serverTime()
-        for shooterID in list(self._tracers):
-            tracers = [tracer for tracer in self._tracers[shooterID] if now - tracer[0] <= _TRACER_TIME]
-            if tracers:
-                self._tracers[shooterID] = tracers
-            else:
-                del self._tracers[shooterID]
-        tracer = (now, Math.Vector3(_argument(args, kwargs, 7, 'refStartPoint')),
-                  Math.Vector3(_argument(args, kwargs, 8, 'velocity')), _argument(args, kwargs, 9, 'gravity') or 0.0)
-        self._tracers.setdefault(_argument(args, kwargs, 0, 'shooterID'), []).append(tracer)
-
-    def _shotDirection(self, vehicle, attackerID, point):
-        # The shell's direction at the point in the point's part space, from the attacker's tracer whose way passes
-        # the point nearest (within _TRACER_MISS); () without one. The shell flies on a parabola: its horizontal
-        # velocity stays, gravity bends it down.
-        matrix = _partMatrix(vehicle, point.part)
-        if matrix is None:
-            return ()
-        start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
-        target = matrix.applyPoint((start + end) * 0.5)
-        best = None
-        for _, origin, velocity, gravity in self._tracers.get(attackerID, ()):
-            flat = math.hypot(velocity.x, velocity.z)
-            if flat < 1e-3:
-                continue
-            flight = math.hypot(target.x - origin.x, target.z - origin.z) / flat
-            position = origin + velocity * flight - Math.Vector3(0.0, gravity * flight * flight * 0.5, 0.0)
-            miss = (target - position).length
-            if best is None or miss < best[0]:
-                best = (miss, Math.Vector3(velocity.x, velocity.y - gravity * flight, velocity.z))
-        if best is None or best[0] > _TRACER_MISS:
-            _logger.info('hits: no tracer of vehicle %s for its hit (nearest %s m)', attackerID,
-                         '%.2f' % best[0] if best is not None else None)
-            return ()
-        matrix.invert()
-        direction = matrix.applyVector(best[1])
-        direction.normalise()
-        way = end - start
-        if way.length > 1e-6:
-            way.normalise()
-            _logger.info('hits: tracer of vehicle %s: %.2f m from the hit point, %.2f degrees from the hit points\' '
-                         'way', attackerID, best[0], math.degrees(math.acos(max(-1.0, min(1.0, way.dot(direction))))))
-        return tuple(round(value, _DIRECTION_DECIMALS) for value in (direction.x, direction.y, direction.z))
-
-    def _onBattleEvents(self, name, avatar, args, kwargs):
-        for event in _argument(args, kwargs, 0, 'events') or ():
-            field = _EVENT_SIDES.get(event['eventType'])
-            if field is not None:
-                self._addInfo((field, event['targetID']), _eventInfo(event['eventType'], event['details']))
-
-    def _onDamageInfo(self, name, avatar, args, kwargs):
-        # What a shell of the attacker (entityID) did to the player's vehicle: a module or a crew member damaged, a
-        # fire, the vehicle destroyed. The extra index 0 is none.
-        vehicleID, damageIndex = _argument(args, kwargs, 0, 'vehicleID'), _argument(args, kwargs, 1, 'damageIndex')
-        extraIndex, attackerID = _argument(args, kwargs, 2, 'extraIndex'), _argument(args, kwargs, 3, 'entityID')
-        if vehicleID != getattr(avatar, 'playerVehicleID', None):
-            return
-        code = DAMAGE_INFO_CODES[damageIndex]
-        _logger.info('hits: damage info %s, extra %s, attacker %s', code, extraIndex, attackerID)
-        if _SHOT_CODE not in code:
-            return
-        extra = avatar.vehicleTypeDescriptor.extras[extraIndex].name if extraIndex else ''
-        device = DamagedDevice(code=code, extra=extra, device=_EXTRA_DEVICES.get(extra, ''))
-        self._addInfo(('receivedHits', attackerID), {'damagedDevices': (device,)})
-
-    def _addInfo(self, key, info):
-        # Adds the info to the last hit of the key within _PAIRING_TIME, or keeps it for the hit to come.
-        now = BigWorld.serverTime()
-        last = self._lastHits.get(key)
-        battle = self._store.getBattle(last[1]) if last is not None and now - last[0] <= _PAIRING_TIME else None
-        if battle is None:
-            _logger.info('hits: %s of vehicle %s waits for its hit: %s', key[0], key[1], info)
-            self._pendingEvents.setdefault(key, []).append((now, info))
-            return
-        field = key[0]
-        hits, index = getattr(battle, field), last[2]
-        _logger.info('hits: %s #%d of vehicle %s gets %s', field, index + 1, key[1], info)
-        hits = hits[:index] + (_withInfo(hits[index], info),) + hits[index + 1:]
-        self._store.update(battle.replace(**{field: hits}))
-
-
-def _argument(args, kwargs, index, name):
-    if name in kwargs:
-        return kwargs[name]
-    return args[index] if len(args) > index else None

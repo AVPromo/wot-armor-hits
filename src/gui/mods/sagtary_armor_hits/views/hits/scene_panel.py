@@ -8,8 +8,7 @@ on other vehicles each, and the hangar shows one, so on the dealt side the panel
 (showsAllLines is False there, the page hides the choice of lines) and keeps the choice for the received side. It
 tells its listeners when the choices change (onChanged); the hit lines presenter draws by them. The reset button
 asks for the camera's start (onResetCamera): the hit lines presenter puts it back, or behind the shell when the shooter
-view is on. The "All" label is
-the client's text, the others the mod's.
+view is on. The "All" label is the client's text, the others the mod's.
 """
 from Event import Event
 

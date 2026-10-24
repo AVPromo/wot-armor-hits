@@ -7,10 +7,13 @@ DEFAULT_SETTINGS = {
     # Put the lobby button into the ModsList API mods list when ModsList API is installed;
     # false: always the button of its own in the hangar footer.
     'useModsList': True,
+    # Write the debug record of every battle (every server call about shots, one JSON Lines file per battle in
+    # RECORDS_DIR); read when the client starts.
+    'debug': False,
 }
 
-# Battle records (one JSON Lines file per battle), relative to the game folder.
-RECORDS_DIR = 'mods/sagtary_armor_hits/battles'
+# Debug records (one JSON Lines file per battle), relative to the game folder.
+RECORDS_DIR = 'mods/sagtary_armor_hits/debug'
 
 # Battles of the session kept for the hits screen (in memory), newest first.
 BATTLES_LIMIT = 50

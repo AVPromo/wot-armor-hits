@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Raw battle record: every call from the server about shots and damage, written to a JSON Lines file per battle.
+"""Debug record: every call from the server about shots and damage, written to a JSON Lines file per battle, to check
+the hits against what the server sent. On only with the "debug" setting: it writes a lot while the battle goes.
 
 The server calls methods of the entities on the client (BigWorld remote methods). Here the methods about shots,
-hits and damage are wrapped; each call is written with all its arguments before the client handles it:
+hits and damage are listened to (hooks.py); each call is written with all its arguments before the client handles
+it:
 
 - Vehicle (called on the vehicle it is about, any vehicle the client sees):
   showDamageFromShot (a shell hit: hit points per armor plate), showDamageFromExplosion (HE splash),
@@ -13,8 +15,8 @@ hits and damage are wrapped; each call is written with all its arguments before 
   indicator), showVehicleDamageInfo (damage messages, crits), showOtherVehicleDamagedDevices,
   updateVehicleHealth, onBattleEvents / battleEventsSummary (the battle events feed: damage, blocked, spotting).
 
-Argument names are read from the client's own methods, so a call is written in full even when a client update
-adds arguments. Shell hits get the hit points decoded by the client's DamageFromShotDecoder and the state of the
+Argument names are those of the client's own methods (hooks.py), so a call is written in full even when a client
+update adds arguments. Shell hits get the hit points decoded by the client's DamageFromShotDecoder and the state of the
 victim (position, turret and gun angles, modules); explosions and health changes get the victim state too.
 
 The file is written while the battle goes, one JSON object per line:
@@ -28,7 +30,6 @@ The file is written while the battle goes, one JSON object per line:
 - "end": the last line.
 Replays are recorded the same way, with "isReplay" in the first line and "_replay" in the file name.
 """
-import inspect
 import json
 import logging
 import os
@@ -52,30 +53,6 @@ _AVATAR_METHODS = ('showTracer', 'stopTracer', 'explodeProjectile', 'showShotRes
                    'showVehicleDamageInfo', 'showOtherVehicleDamagedDevices', 'updateVehicleHealth',
                    'onBattleEvents', 'battleEventsSummary')
 _MAX_DEPTH = 8
-# Argument names of the client 2.4.1 methods. Used when the method in the class is a wrapper of another mod
-# (def wrapper(*args, **kwargs)) and its own argument names cannot be read.
-_KNOWN_ARGS = {
-    'showDamageFromShot': ('attackerID', 'hitPoints', 'effectsIndex', 'prefabEffIndex', 'damage', 'damageFactor',
-                           'lastMaterialIsShield', 'shellVelocity', 'gunInstallationIndex'),
-    'showDamageFromExplosion': ('attackerID', 'center', 'effectsIndex', 'damage', 'damageFactor',
-                                'gunInstallationIndex'),
-    'onHealthChanged': ('newHealth', 'oldHealth', 'attackerID', 'attackReasonID', 'attackReasonExtID'),
-    'showTracer': ('shooterID', 'shotID', 'isRicochet', 'effectsIndex', 'prefabEffIndex', 'shellTypeIdx',
-                   'shellCaliber', 'refStartPoint', 'velocity', 'gravity', 'maxShotDist', 'gunIndex',
-                   'gunInstallationIndex'),
-    'stopTracer': ('shotID', 'endPoint'),
-    'explodeProjectile': ('shotID', 'effectsIndex', 'prefabEffIndex', 'effectMaterialIndex', 'shellTypeIdx',
-                          'shellCaliber', 'endPoint', 'velocityDir', 'speed', 'damagedDestructibles'),
-    'showShotResults': ('results',),
-    'showOwnVehicleHitDirection': ('hitDirYaw', 'attackerID', 'damage', 'crits', 'isBlocked', 'isShellHE',
-                                   'damagedID', 'attackReasonID'),
-    'showVehicleDamageInfo': ('vehicleID', 'damageIndex', 'extraIndex', 'entityID', 'equipmentID',
-                              'ignoreMessages'),
-    'showOtherVehicleDamagedDevices': ('vehicleID', 'damagedExtras', 'destroyedExtras'),
-    'updateVehicleHealth': ('vehicleID', 'health', 'deathReasonID', 'isCrewActive', 'isRespawn'),
-    'onBattleEvents': ('events',),
-    'battleEventsSummary': ('summary',),
-}
 
 
 def _plain(value, depth=0):
@@ -143,7 +120,7 @@ def _vehicleState(vehicle):
             state['turretMatrix'] = _plain(Math.Matrix(appearance.turretMatrix))
             state['gunMatrix'] = _plain(Math.Matrix(appearance.gunMatrix))
         except Exception:
-            _logger.debug('record: no matrices for vehicle %s', vehicle.id, exc_info=True)
+            _logger.debug('debug: no matrices for vehicle %s', vehicle.id, exc_info=True)
     return state
 
 
@@ -202,11 +179,10 @@ def _battleInfo(player):
     return info
 
 
-class BattleRecorder(object):
+class DebugRecorder(object):
 
-    def __init__(self):
-        # {(class, method name): original function}
-        self._originals = {}
+    def __init__(self, hooks):
+        self._hooks = hooks
         self._file = None
         self._path = None
         self._count = 0
@@ -218,36 +194,17 @@ class BattleRecorder(object):
     def install(self):
         for cls, names in ((Vehicle, _VEHICLE_METHODS), (PlayerAvatar, _AVATAR_METHODS)):
             for name in names:
-                if name not in cls.__dict__:
-                    _logger.warning('record: %s.%s not in this client', cls.__name__, name)
-                    continue
-                self._wrap(cls, name)
+                self._hooks.listen(cls, name, self._onCall)
         g_playerEvents.onAvatarReady += self._start
         g_playerEvents.onAvatarBecomeNonPlayer += self._stop
 
     def uninstall(self):
         g_playerEvents.onAvatarReady -= self._start
         g_playerEvents.onAvatarBecomeNonPlayer -= self._stop
-        for (cls, name), function in self._originals.items():
-            setattr(cls, name, function)
-        self._originals = {}
+        for cls, names in ((Vehicle, _VEHICLE_METHODS), (PlayerAvatar, _AVATAR_METHODS)):
+            for name in names:
+                self._hooks.stop(cls, name, self._onCall)
         self._stop()
-
-    def _wrap(self, cls, name):
-        original = cls.__dict__[name]
-        argNames = inspect.getargspec(original).args[1:] or list(_KNOWN_ARGS.get(name, ()))
-        recorder = self
-
-        def wrapper(entity, *args, **kwargs):
-            try:
-                recorder._onCall(cls, name, argNames, entity, args, kwargs)
-            except Exception:
-                _logger.exception('record: cannot record %s.%s', cls.__name__, name)
-            return original(entity, *args, **kwargs)
-
-        wrapper.__name__ = name
-        self._originals[(cls, name)] = original
-        setattr(cls, name, wrapper)
 
     def _start(self):
         if self._file is not None:
@@ -270,9 +227,9 @@ class BattleRecorder(object):
                 self._arena.onVehicleAdded += self._onArenaVehicle
                 self._arena.onVehicleUpdated += self._onArenaVehicle
                 self._onArenaList()
-            _logger.info('record: %s', self._path)
+            _logger.info('debug: %s', self._path)
         except Exception:
-            _logger.exception('record: cannot start the battle record')
+            _logger.exception('debug: cannot start the record')
             self._stop()
 
     def _stop(self):
@@ -286,9 +243,9 @@ class BattleRecorder(object):
         try:
             self._write({'event': 'end', 'time': time.time(), 'calls': self._count})
             self._file.close()
-            _logger.info('record: %d calls in %s', self._count, self._path)
+            _logger.info('debug: %d calls in %s', self._count, self._path)
         except Exception:
-            _logger.exception('record: cannot close %s', self._path)
+            _logger.exception('debug: cannot close %s', self._path)
         self._file = None
 
     def _write(self, data):
@@ -296,16 +253,13 @@ class BattleRecorder(object):
         self._file.write('\n')
         self._file.flush()
 
-    def _onCall(self, cls, name, argNames, entity, args, kwargs):
+    def _onCall(self, call):
         if self._file is None:
             return
-        callArgs = dict(zip(argNames, args))
-        if len(args) > len(argNames):
-            callArgs['*'] = list(args[len(argNames):])
-        callArgs.update(kwargs)
+        name, entity, callArgs = call.name, call.entity, call.arguments()
         record = {
             'event': name,
-            'class': cls.__name__,
+            'class': call.cls.__name__,
             'entityID': entity.id,
             'time': time.time(),
             'serverTime': BigWorld.serverTime(),
@@ -345,7 +299,7 @@ class BattleRecorder(object):
             data = self._arena.vehicles.get(vehicleID) or {}
             self._noteVehicle(vehicleID, data.get('vehicleType'))
         except Exception:
-            _logger.exception('record: cannot record arena vehicle %s', vehicleID)
+            _logger.exception('debug: cannot record arena vehicle %s', vehicleID)
 
     def _noteVehicle(self, vehicleID, descriptor):
         # A "vehicle" line when the vehicle is new or its descriptor changed.

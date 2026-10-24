@@ -3,11 +3,9 @@
 the shooter view.
 
 HitLinesPresenter draws on the vehicle the hangar shows (hangar_vehicle.py) the way of the hit the hits panel has
-chosen and, when the scene panel asks for all lines, the ways of the other hits the panel shows. The chosen hit's way
-A way is in the color of the hit's result (_RESULT_COLOURS: red for damage, orange for a critical hit without damage,
-grey for a blocked hit), on both sides: the chosen hit's dashed in that color and black, from the color, the others
-solid. The pieces are tubes drawn with the client's debug drawer (scene_lines.py): over the client's armor overlay,
-hidden behind the vehicle.
+chosen and, when the scene panel asks for all lines, the ways of the other hits the panel shows. A way (Way) is drawn
+as hit_way.py tells, the chosen hit's more marked than the others'. The shapes are drawn with the client's debug
+drawer (scene_lines.py): over the client's armor overlay, hidden behind the vehicle.
 
 With the shooter view on, the hangar camera looks along the chosen hit's shell at its first point
 (HangarCameraSystem.moveCamera); turned off, the camera goes back to its place (resetCameraTarget). The scene panel's
@@ -23,10 +21,11 @@ direction there; a piece to the next point after a ricochet or spaced armor, whe
 vehicle again, or its main armor behind the spaced one); after a ricochet that is the last point, a piece of
 _RICOCHET metres in the mirrored direction (the client does not tell where the shell went). The way after a
 penetration is not drawn. A high explosive shell bursts at its first point: its other points are what the burst hit,
-not its way, so only the way to the first point is drawn. A splash (Hit.splashCenter) has no points: a cross of
-_BURST metres where the shell burst and a post from there down (or up) to the level of the vehicle's tracks, the
-chassis space's ground: the shell burst on a slope, in a hole or on a rock or a wall, while the hangar's floor is
-flat. The explosion radius is not drawn: about 10 m for a big gun, it covers the hangar.
+not its way, so only the way to the first point is drawn. A splash (Hit.splashCenter) has no points: a sphere
+where the shell burst and a line from there down (or up) to the level of the vehicle's tracks, the chassis space's
+ground, when it is more than _GROUND metres away: the shell burst on a slope, in a hole or on a rock or a wall, while
+the hangar's floor is flat. The explosion radius is not drawn: about 10 m
+for a big gun, it covers the hangar.
 
 A point is the middle of the shell's way through the part the server sends, and the shell's direction is along that
 way, like the Battle Hits mod places its hits: data only, so a point does not wait for the vehicle's collision model.
@@ -48,27 +47,20 @@ from helpers import dependency
 from skeletons.gui.shared.utils import IHangarSpace
 from vehicle_systems.tankStructure import TankPartIndexes, TankPartNames
 
-from gui.mods.sagtary_armor_hits.data.hits import HitResult
 from gui.mods.sagtary_armor_hits.views.hits.hangar_vehicle import hitsVehicle
+from gui.mods.sagtary_armor_hits.views.hits.hit_way import drawWay
 from gui.mods.sagtary_armor_hits.views.hits.scene_lines import SceneLines
 from gui.mods.sagtary_armor_hits.views.hits.scene_log import sceneState
 from gui.mods.sagtary_armor_hits.trace import calls, effectsText, modulesText
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
-# The colors (ARGB) of a way's dashes: the color of the hit's result, then black, in turn.
-_DASH_BLACK = 0xFF101010
-_RESULT_COLOURS = {
-    HitResult.DAMAGE: 0xFFFF3020,
-    HitResult.BLOCKED: 0xFF9A9A9A,
-    HitResult.RICOCHET: 0xFFD880D8,
-    HitResult.NO_DAMAGE: 0xFFA8E0E2,
-}
+# The colors (ARGB) of the hits' results.
 # Metres: the way drawn before the first point and after a ricochet.
 _LEAD = 2.5
 _RICOCHET = 1.5
-# Metres: the arms of a splash's burst cross.
-_BURST = 0.3
+# Metres: a splash this close to the tracks' level has no line to it.
+_GROUND = 0.02
 _NORMAL_RETRY = 0.2
 _NORMAL_TRIES = 5
 # The shooter view: the camera's distance to the hit point in metres and its flight in seconds.
@@ -121,30 +113,42 @@ def _drawn(hit):
 
 
 def _splashWay(hit, compoundModel):
-    # ([(start, end)] pieces of a splash: the burst cross and its post to the tracks' level, (burst, the direction to
-    # the vehicle)).
+    # ((burst, the chassis' axes, the line's foot on the tracks' level or None), (burst, the direction to the
+    # vehicle)); (None, None) without the chassis.
     chassis = _partNode(compoundModel, TankPartIndexes.CHASSIS)
     if chassis is None:
-        return [], None
+        return None, None
     x, y, z = hit.splashCenter
     center = chassis.applyPoint(Math.Vector3(x, y, z))
-    foot = chassis.applyPoint(Math.Vector3(x, 0.0, z))
-    pieces = [(center - axis * _BURST, center + axis * _BURST) for axis in (
-        _unit(chassis.applyVector(Math.Vector3(1, 0, 0))), _unit(chassis.applyVector(Math.Vector3(0, 1, 0))),
-        _unit(chassis.applyVector(Math.Vector3(0, 0, 1))))]
-    if abs(y) > _BURST:
-        pieces.append((center, foot))
+    foot = chassis.applyPoint(Math.Vector3(x, 0.0, z)) if abs(y) > _GROUND else None
+    axes = tuple(_unit(chassis.applyVector(axis)) for axis in (
+        Math.Vector3(1, 0, 0), Math.Vector3(0, 1, 0), Math.Vector3(0, 0, 1)))
     direction = chassis.translation - center
     if direction.length < 1e-3:
         direction = chassis.applyVector(Math.Vector3(0, 0, 1))
-    return pieces, (center, _unit(direction))
+    return (center, axes, foot), (center, _unit(direction))
+
+
+class Way(object):
+    # A hit's way in the scene (drawn by hit_way.py): the lead to the first point, the pieces on to the next points
+    # (after a ricochet or spaced armor), a ricochet's way out, the first point and the shell's direction there, a
+    # splash's mark (_splashWay).
+    __slots__ = ('lead', 'links', 'out', 'first', 'splash')
+
+    def __init__(self):
+        self.lead = None
+        self.links = []
+        self.out = None
+        self.first = None
+        self.splash = None
 
 
 def _hitWay(hit, compoundModel, collisions):
-    # ([(start, end)] pieces of the hit's way in the scene, (first point, shell direction) or None, whether a
-    # ricochet's way out waits for the collision model).
+    # (the hit's Way, whether a ricochet's way out waits for the collision model).
+    way = Way()
     if not hit.points and hit.splashCenter:
-        return _splashWay(hit, compoundModel) + (False,)
+        way.splash, way.first = _splashWay(hit, compoundModel)
+        return way, False
     points = []
     for point in hit.points:
         start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
@@ -155,16 +159,17 @@ def _hitWay(hit, compoundModel, collisions):
     if hit.shellType == SHELL_TYPES.HIGH_EXPLOSIVE:
         points = points[:1]
     if not points:
-        return [], None, False
+        return way, False
     if hit.shotDirection:
         point, matrix, position, _ = points[0]
         points[0] = (point, matrix, position, _unit(matrix.applyVector(Math.Vector3(*hit.shotDirection))))
-    pieces = [(points[0][2] - points[0][3] * _LEAD, points[0][2])]
+    way.lead = (points[0][2] - points[0][3] * _LEAD, points[0][2])
+    way.first = (points[0][2], points[0][3])
     waitsNormal = False
     for previous, current in zip(points, points[1:]):
         if previous[0].effect not in _GOES_ON:
             break
-        pieces.append((previous[2], current[2]))
+        way.links.append((previous[2], current[2]))
     else:
         point, matrix, position, direction = points[-1]
         if point.effect in _RICOCHETS:
@@ -172,10 +177,10 @@ def _hitWay(hit, compoundModel, collisions):
             if normal is not None:
                 normal = _unit(matrix.applyVector(normal))
                 mirrored = _unit(direction - normal * (2 * direction.dot(normal)))
-                pieces.append((position, position + mirrored * _RICOCHET))
+                way.out = (position, position + mirrored * _RICOCHET)
             else:
                 waitsNormal = True
-    return pieces, (points[0][2], points[0][3]), waitsNormal
+    return way, waitsNormal
 
 
 def _checkPoints(hit, collisions):
@@ -195,11 +200,6 @@ def _checkPoints(hit, collisions):
                 text = 'armor at %.3f m of the %.3f m way' % (found[0], (end - start).length)
         _logger.info('check: hit lines: point %d, part %s, %s: %s', index, point.part,
                      effectsText((point.effect,)), text)
-
-
-def _colours(hit):
-    # The colors of the chosen hit's dashes in turn: the result's color first, then black.
-    return _RESULT_COLOURS.get(hit.result, _RESULT_COLOURS[HitResult.BLOCKED]), _DASH_BLACK
 
 
 class HitLinesPresenter(object):
@@ -317,16 +317,15 @@ class HitLinesPresenter(object):
         _, chosen, others = self._target
         waitsNormal = False
         for hit in others:
-            pieces, _, waits = _hitWay(hit, compoundModel, collisions)
+            way, waits = _hitWay(hit, compoundModel, collisions)
             waitsNormal = waitsNormal or waits
-            for start, end in pieces:
-                self._lines.add(start, end, _colours(hit)[:1])
+            drawWay(self._lines, way, False)
         first = None
         if chosen is not None:
-            pieces, first, waits = _hitWay(chosen, compoundModel, collisions)
+            way, waits = _hitWay(chosen, compoundModel, collisions)
             waitsNormal = waitsNormal or waits
-            for start, end in pieces:
-                self._lines.add(start, end, _colours(chosen))
+            first = way.first
+            drawWay(self._lines, way, True)
             if chosen.splashCenter and not chosen.points:
                 _logger.info('check: hit lines: splash at %s of the chassis', chosen.splashCenter)
         if waitsNormal and self._normalTries < _NORMAL_TRIES:
@@ -341,9 +340,9 @@ class HitLinesPresenter(object):
         self.chosenShot = first
         calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
         self.onDrawn()
-        _logger.info('scene: hit lines: %s: %d dashes, %d other hits, chosen hit at %s, direction %s', reason,
-                     len(self._lines), len(others), _text(first[0]) if first else None,
-                     _text(first[1]) if first else None)
+        _logger.info('scene: hit lines: %s: %d shapes, %d other hits, chosen hit at %s, direction %s',
+                     reason, len(self._lines), len(others),
+                     _text(first[0]) if first else None, _text(first[1]) if first else None)
 
     def _onNormalRetry(self):
         self._callbackID = None

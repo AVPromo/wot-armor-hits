@@ -42,11 +42,14 @@ Data, without UI (`data/`):
 | Module                    | Does                                                                         |
 |---------------------------|------------------------------------------------------------------------------|
 | `data/record.py`          | `Record`: a plain data object with fields and defaults (`FIELDS`) and nested records (`NESTED`), written to and read from a dict; the base of `Battle` and `Hit` |
-| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects, the points the shell hit as `HitPoint`s, where a splash's shell burst in the hit vehicle's chassis space, the shell's exact direction at the first point from its tracer, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result: damage, else like the client's armor tooltip by the last point's effect: blocked, ricochet, no damage), `HitCollector` (adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`; the shell's direction from the shooter's `PlayerAvatar.showTracer` whose way passes the first point nearest) |
+| `data/hits.py`            | hits of a battle: `Hit` (shell kind, premium shell, damage, blocked damage, crits, hit effects, the points the shell hit as `HitPoint`s, where a splash's shell burst in the hit vehicle's chassis space, the shell's exact direction at the first point from its tracer, the other vehicle's compact descriptor, the distance between the vehicles, what the shell did to the player's vehicle as `DamagedDevice`s by the client's names: damage info code, extra, device kind; its result: damage, else like the client's armor tooltip by the last point's effect: blocked, ricochet, no damage) |
+| `data/hit_parser.py`      | the rules that make the hits from the server's calls, without reading the client: whose hit it is, a shell's hit from its decoded points, a splash, what the battle events and the damage info add (`HitPairing`: an event and a hit of the same vehicle within 1.5 s are one hit), the shell's direction from the tracer whose way passes the first point nearest (`Tracers`) |
+| `data/hit_collector.py`   | `HitCollector`: adds the received and dealt hits to the battle in the `BattleStore` from `Vehicle.showDamageFromShot` and `showDamageFromExplosion`; the crits, a premium shell and the blocked damage from the client's battle events, `PlayerAvatar.onBattleEvents`; the damaged modules from `PlayerAvatar.showVehicleDamageInfo`; the tracers from `PlayerAvatar.showTracer`; reads the client at each call (decoded points, arena, positions) for `hit_parser.py` |
+| `data/hooks.py`           | `ClientHooks`: wraps each client method the server calls once, for all its listeners (the debug record, the hit collector); a listener gets each call (`Call`: entity, arguments by name) before the client's method; the method is put back after its last listener |
 | `data/battles.py`         | battles of the session in memory: `Battle` (fields with defaults in `FIELDS`), `BattleStore` (newest first, up to `BATTLES_LIMIT`, `onChanged`), `BattleCollector` (adds the battle on `onAvatarReady`, battles and replays, and its winner on `onRoundFinished`) |
 | `data/client_names.py`   | names of vehicles and maps by their ids from the client caches, in the client language; a battle keeps only the ids (`battleId`, `mapId`, `gameplayId`, `battleType`, `vehicleId`), so a battle from a file shows in the current client language |
 | `data/battle_file.py`     | the battles written to JSON files and read back (`BattleFiles`), for the file buttons (reports): one file `hits_<battleId>.json` per battle, written over when saved again; loading reads all `hits_*.json` of the folder; a file has `formatVersion` (its layout) and `appVersion` (the mod that wrote it) |
-| `data/battle_recorder.py` | raw record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/battles/` |
+| `data/debug_recorder.py`  | debug record of every server call about shots and damage, a JSON Lines file per battle in `mods/sagtary_armor_hits/debug/`; on only with the `debug` setting (`mods/configs/sagtary_armor_hits/config.json`, read when the client starts) |
 
 UI (`views/`), a package per screen or button. The view models, the data the Gameface pages read, are apart in
 `views/models/`, like the client's `gui/impl/gen/view_models`; they hold no logic, the views and presenters fill them.
@@ -60,8 +63,9 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/hits_panel.py`                | presenter of the hits panel: the received or dealt hits of the selected battle, the result filters, the chosen hit (`onChanged`, `selection`) |
 | `views/hits/hangar_vehicle.py`            | presenter of the hangar vehicle: the vehicle the panel shows the hits on, as the client's preview vehicle |
 | `views/hits/hangar_scene.py`              | presenter of the hangar camera while the screen is open: its collisions off and its pitch limits widened, so it goes under the floor and looks from below; put back when the screen closes |
-| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way as thin tubes in the 3D scene over the hangar vehicle |
-| `views/hits/scene_lines.py`               | dashed tubes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay |
+| `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way (`Way`: lead, pieces on, ricochet's way out, splash) in the 3D scene over the hangar vehicle |
+| `views/hits/hit_way.py`                   | the look of a hit's way: a solid white line to the first point, white dashes after a ricochet or spaced armor, at the line's start a white dot and rings as a cone back towards the shooter |
+| `views/hits/scene_lines.py`               | shapes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay: tubes, dashed tubes (with gaps), spheres, rings |
 | `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
 | `views/hits/overlay_panel.py`             | presenter of the overlay panel: the armor page's three overlay types (client texts) and the client's armor overlay on the hangar vehicle |
 | `views/hits/shot_panel.py`                | presenter of the shot panel: the chosen hit's shooter and target cards (vehicle; icons of the shooter's gun and shell, the target's turret and gun, with the client's module and shell tooltips), result, and sections (damage, penetration, armor and angle counted in the garage, distance, modules and crew: on a hit on the player's vehicle the battle damage panel's icons copied into `gui/maps/sagtary_armor_hits/modules/`, a tile per module kind and crew role that shot damaged, in rows of four, the crew under them, with the client's names of the damaged parts and crew members under the icon in their state's color) |
@@ -159,18 +163,19 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   normal at a last ricochet: it comes a few frames after the vehicle and answers with wrong points before that.
   When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
   the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
-  `onVehicleChangeStarted` and on another hit. Each piece of the chosen hit's way is dashed in the color of the hit's
-  result (red damage, grey blocked, pink ricochet, cyan no damage) and black, from the color, 10 cm a dash, on both
-  sides; the other hits' ways ("All" lines) are solid in their result's color; a dash is a cylinder 18 mm thick drawn with
-  the client's debug drawer (`DebugDrawer.DebugDrawer().cylinder()`, tested against the scene's depth, so the vehicle
+  `onVehicleChangeStarted` and on another hit. All in white (`hit_way.py`): a solid line to the first point, dashes
+  with gaps after a ricochet or spaced armor, at the line's start a dot and rings as a cone back towards the shooter;
+  the other hits' ways ("All" lines) thinner, with one ring; a line is a cylinder 18 mm thick (12 mm for the others)
+  drawn with the client's debug drawer (`DebugDrawer.DebugDrawer().cylinder()`, tested against the scene's depth, so the vehicle
   hides what is behind it), again on every frame. The debug drawer draws after the client's armor overlay, which
   covers every scene model whatever its shader (`glow.fx`, `glow_noalpha.fx`, opaque `lightonly.fx` were tried). The way:
   2.5 m before the first point; on to the next point after a ricochet or spaced armor; 1.5 m out of a last ricochet
   in the mirrored direction; none after a penetration; only the first point for a high explosive shell (its other
   points are what the burst hit). A splash has no points: the hit keeps where the shell burst
-  (`showDamageFromExplosion`'s center, in the hit vehicle's chassis space), drawn as a cross of 0.3 m arms and a post
-  from there to the tracks' level (the chassis space's ground): the shell may burst above or below the tracks (a
-  slope, a hole, a rock, a wall), while the hangar's floor is flat. The explosion radius (about 10 m for a big gun) is
+  (`showDamageFromExplosion`'s center, in the hit vehicle's chassis space), drawn as a sphere of three rings around
+  the chassis' axes with a dot on the burst, and a dashed line down (or up) to the tracks' level (the chassis space's
+  ground): the shell may burst above or below the tracks (a slope, a hole, a rock, a wall), while the
+  hangar's floor is flat. The explosion radius (about 10 m for a big gun) is
   not drawn: it covers the hangar. Tried before: a Gameface overlay projected every frame (thin and colored, but flat,
   over the vehicle), the client's cube `objects/misc/bbox/unit_cube_1m_proxy.model` (lit, of one bluish color) and
   the mod's own tube models with the glow shader (under the armor overlay);
