@@ -12,7 +12,9 @@ load of the client's tooltip page takes a while); then it is moved to the mouse,
 shown again when it comes back. The window keeps the hangar's vehicle entity, which stays the same for another
 vehicle: the window stays too (a new window shows late the first time), made again only for another entity. Once its
 page has loaded it is filled off the screen with the armor along the camera's ray to the vehicle, so that its first
-showing at the mouse has its layout made. The armor page
+showing at the mouse has its layout made, and hidden on the next frame. A window shows itself when it has loaded, where
+it was put before (a move before the load does not hold: it showed at the top left), so it is put off the screen again
+then. The armor page
 shows the tooltip only over the vehicle the client has focused (HangarSpace.onMouseEnter), which needs the hangar's
 object selection; this one shows it wherever the mouse ray hits the vehicle. The armor page updates its tooltip on
 the mouse events of the game (gui.g_mouseEventHandlers), but the page's layer over the scene takes the mouse moves, so
@@ -55,6 +57,8 @@ class ArmorTooltipPresenter(object):
         self._shown = False
         self._madeAt = 0.0
         self._entity = None
+        # The callback that hides the window filled off the screen, None without it.
+        self._warmUpID = None
 
     def init(self):
         self.__hangarSpace.onNotifyCursorOver3dScene += self._onCursorOverScene
@@ -144,7 +148,10 @@ class ArmorTooltipPresenter(object):
     def _onStatusChanged(self, status):
         _logger.info('armor tooltip: window status %s at %.0f ms', status, (BigWorld.time() - self._madeAt) * 1000)
         if status == WindowStatus.LOADED:
+            # The loaded window shows itself: off the screen, then hidden when its layout is made.
+            self._tooltip.move(_OFF_SCREEN, _OFF_SCREEN)
             self._warmUp()
+            self._warmUpID = BigWorld.callback(0.0, self._endWarmUp)
         elif status == WindowStatus.DESTROYED:
             self._destroy(isDestroyed=True)
 
@@ -165,6 +172,12 @@ class ArmorTooltipPresenter(object):
         self._tooltip.update(self._overlayPanel.selected, self._overlayPanel.shellParams, segments)
         _logger.info('armor tooltip: filled off the screen with %d layers', len(segments))
 
+    def _endWarmUp(self):
+        self._warmUpID = None
+        if self._tooltip is not None and not self._shown:
+            self._tooltip.hide()
+            _logger.info('armor tooltip: hidden after the filling')
+
     def _onViewStatusChanged(self, status):
         _logger.info('armor tooltip: page status %s at %.0f ms', status, (BigWorld.time() - self._madeAt) * 1000)
 
@@ -178,6 +191,9 @@ class ArmorTooltipPresenter(object):
 
     def _destroy(self, isDestroyed=False):
         # isDestroyed: the window is gone already (the client closed it), its page with it.
+        if self._warmUpID is not None:
+            BigWorld.cancelCallback(self._warmUpID)
+            self._warmUpID = None
         tooltip, self._tooltip = self._tooltip, None
         if tooltip is None:
             return

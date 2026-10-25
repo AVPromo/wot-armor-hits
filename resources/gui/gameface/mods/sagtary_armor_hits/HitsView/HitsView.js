@@ -71,20 +71,112 @@ sceneInput.addEventListener("wheel", (event) => {
     event.preventDefault();
     moveSpace(0, 0, event.deltaY < 0 ? -WHEEL_STEP : WHEEL_STEP);
 });
-// Scrolled lists: Gameface's own wheel scrolling of an overflow moves a few pixels a step, so the page scrolls them
-// itself, a part of the visible height a step. Gameface gives a negative deltaY for the wheel turned towards the user
-// (down).
+// Scroll view: a list (.scrollView__content, its rows in one block) that scrolls in its box (.scrollView) with a bar
+// right of it, like the client's barracks list (its VerticalScroll): arrows at the ends, the thumb on a rail, the
+// client's images. Gameface draws no bar of its own. The page scrolls the list itself: the wheel and the arrows a part
+// of the visible height a step (Gameface's own wheel step is a few pixels), a click on the rail a page, the thumb
+// follows a drag. Gameface gives a negative deltaY for the wheel turned towards the user (down). The bar shows only
+// when the list does not fit.
+// It follows the sizes, as the client's scroll does (useRefResizeObserver): of the visible list (shown, hidden, the
+// window resized) and of its rows (filled again); Gameface lays a list out a few frames after it changes.
 const LIST_STEP = 0.3;
-Array.prototype.forEach.call(document.querySelectorAll(".battleSelector__list, .hitsPanel__list"), (list) => {
-    list.addEventListener("wheel", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.deltaY) {
-            const step = Math.max(40, list.clientHeight * LIST_STEP);
-            list.scrollTop += event.deltaY < 0 ? step : -step;
+// A drag of a thumb that ended this long ago in ms is still ending: the click it makes is not a click elsewhere.
+const DRAG_CLICK_MS = 300;
+let dragEndedAt = 0;
+
+function isDragEnding() {
+    return Date.now() - dragEndedAt < DRAG_CLICK_MS;
+}
+
+class ScrollView {
+    constructor(root) {
+        this.root = root;
+        this.content = root.querySelector(".scrollView__content");
+        const bar = element("div", "scrollView__bar");
+        this.up = element("div", "scrollView__button scrollView__up");
+        this.track = element("div", "scrollView__track");
+        this.track.appendChild(element("div", "scrollView__rail"));
+        this.thumb = element("div", "scrollView__thumb");
+        this.track.appendChild(this.thumb);
+        this.down = element("div", "scrollView__button scrollView__down");
+        bar.appendChild(this.up);
+        bar.appendChild(this.track);
+        bar.appendChild(this.down);
+        root.appendChild(bar);
+        // {y, scrollTop} where the thumb's drag started, null without a drag.
+        this.drag = null;
+
+        root.addEventListener("wheel", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.deltaY) {
+                this.scrollBy(event.deltaY < 0 ? this.step() : -this.step());
+            }
+        });
+        this.up.addEventListener("click", () => this.scrollBy(-this.step()));
+        this.down.addEventListener("click", () => this.scrollBy(this.step()));
+        this.track.addEventListener("click", (event) => {
+            if (event.target === this.thumb || isDragEnding()) {
+                return;
+            }
+            const page = this.content.clientHeight;
+            this.scrollBy(event.clientY < this.thumb.getBoundingClientRect().top ? -page : page);
+        });
+        this.thumb.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.drag = { y: event.clientY, scrollTop: this.content.scrollTop };
+        });
+        window.addEventListener("mousemove", (event) => {
+            if (!this.drag) {
+                return;
+            }
+            const free = this.track.clientHeight - this.thumb.offsetHeight;
+            if (free > 0) {
+                this.content.scrollTop = this.drag.scrollTop + ((event.clientY - this.drag.y) * this.range()) / free;
+                this.update();
+            }
+        });
+        window.addEventListener("mouseup", () => {
+            if (this.drag) {
+                this.drag = null;
+                dragEndedAt = Date.now();
+            }
+        });
+        this.content.addEventListener("scroll", () => this.update());
+        const observer = new ResizeObserver(() => this.update());
+        observer.observe(this.content);
+        observer.observe(this.content.firstElementChild);
+    }
+
+    range() {
+        return this.content.scrollHeight - this.content.clientHeight;
+    }
+
+    step() {
+        return Math.max(40, this.content.clientHeight * LIST_STEP);
+    }
+
+    scrollBy(delta) {
+        this.content.scrollTop += delta;
+        this.update();
+    }
+
+    update() {
+        const content = this.content;
+        const range = this.range();
+        const scrolls = range > 1;
+        this.root.classList.toggle("scrollView__scrolls", scrolls);
+        if (!scrolls) {
+            return;
         }
-    });
-});
+        this.thumb.style.height = `${(100 * content.clientHeight) / content.scrollHeight}%`;
+        const free = Math.max(0, this.track.clientHeight - this.thumb.offsetHeight);
+        this.thumb.style.top = `${free * Math.min(1, content.scrollTop / range)}px`;
+        this.up.classList.toggle("scrollView__buttonOff", content.scrollTop <= 0);
+        this.down.classList.toggle("scrollView__buttonOff", content.scrollTop >= range - 1);
+    }
+}
 
 sceneInput.addEventListener("mouseover", () => setOverScene(true));
 sceneInput.addEventListener("mouseout", () => {
@@ -98,6 +190,7 @@ sceneInput.addEventListener("mouseout", () => {
 const selector = document.querySelector(".battleSelector");
 const selectorCard = selector.querySelector(".battleSelector__card");
 const selectorItems = selector.querySelector(".battleSelector__items");
+new ScrollView(selector.querySelector(".battleSelector__list"));
 
 // Array items of a view model may come wrapped as {value: item}.
 function arrayItems(array) {
@@ -203,7 +296,12 @@ selectorCard.addEventListener("click", (event) => {
     setSelectorOpen(!selector.classList.contains("battleSelector__open"));
 });
 selector.querySelector(".battleSelector__list").addEventListener("click", (event) => event.stopPropagation());
-document.addEventListener("click", () => setSelectorOpen(false));
+document.addEventListener("click", () => {
+    // A thumb dragged out of the list and let go is not a click elsewhere.
+    if (!isDragEnding()) {
+        setSelectorOpen(false);
+    }
+});
 document.addEventListener("keydown", (event) => {
     if (event.keyCode === 27) {
         setSelectorOpen(false);
@@ -214,7 +312,8 @@ document.addEventListener("keydown", (event) => {
 // (window.model.hitsPanel). Every click goes to the presenter, which fills the model again.
 const hitsPanel = document.querySelector(".hitsPanel");
 const hitsFilters = hitsPanel.querySelector(".hitsPanel__filters");
-const hitsList = hitsPanel.querySelector(".hitsPanel__list");
+const hitsList = hitsPanel.querySelector(".hitsPanel__items");
+new ScrollView(hitsPanel.querySelector(".hitsPanel__list"));
 
 function hitIcon(kind, side) {
     return element("div", `hitIcon hitIcon__${kind}__${side}`);

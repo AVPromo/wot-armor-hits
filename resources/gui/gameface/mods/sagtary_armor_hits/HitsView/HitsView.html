@@ -65,8 +65,12 @@
                             <div class="battleSelector__time"></div>
                             <div class="battleSelector__arrow"></div>
                         </div>
-                        <!-- The battles grouped by day: a day row, then its battles. -->
-                        <div class="battleSelector__list battleSelector__items"></div>
+                        <!-- The battles grouped by day: a day row, then its battles; a scroll view (HitsView.js). -->
+                        <div class="battleSelector__list scrollView">
+                            <div class="scrollView__content">
+                                <div class="battleSelector__items"></div>
+                            </div>
+                        </div>
                     </div>
                     <!-- Hits panel: the hits of the selected battle on the player's vehicle or by the player (HitsView.js). -->
                     <div class="hitsPanel">
@@ -80,7 +84,11 @@
                             <div class="hitsPanel__step hitsPanel__prev"></div>
                             <div class="hitsPanel__step hitsPanel__next"></div>
                         </div>
-                        <div class="hitsPanel__list"></div>
+                        <div class="hitsPanel__list scrollView">
+                            <div class="scrollView__content">
+                                <div class="hitsPanel__items"></div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="hitsView__right">
