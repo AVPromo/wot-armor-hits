@@ -101,13 +101,6 @@ class VehiclePose(Record):
     FIELDS = (
         ('turretYaw', 0.0),     # radians the turret is turned on the hull (Vehicle.getAimParams)
         ('gunPitch', 0.0),      # radians of the gun's pitch; below 0 the gun is raised, as the client has it
-        ('hullPosition', ()),   # (x, y, z) of the hull in metres in the chassis space, for a vehicle whose hull moves
-                                # on its chassis (siege mode, hydraulic chassis, hull pitch aiming: Strv 103, ...); ()
-                                # for the others
-        ('hullRotation', ()),   # (yaw, pitch, roll) of the hull in radians in the chassis space, for the same vehicles
-        ('wheelSteeringAngles', ()),
-                                # radians each steered wheel of a wheeled vehicle is turned, in the client's order
-                                # (Vehicle.wheelsSteeringSmoothed); () for a tracked vehicle
     )
     __slots__ = tuple(name for name, _ in FIELDS)
 

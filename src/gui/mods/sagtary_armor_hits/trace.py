@@ -69,8 +69,7 @@ def effectsText(effects):
 def poseText(pose):
     if pose is None:
         return 'none'
-    return 'turret %s, gun %s, hull %s %s, wheels %s' % (pose.turretYaw, pose.gunPitch, pose.hullPosition or None,
-                                                         pose.hullRotation or None, pose.wheelSteeringAngles or None)
+    return 'turret %s, gun %s' % (pose.turretYaw, pose.gunPitch)
 
 
 def hitText(hit):

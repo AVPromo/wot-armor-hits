@@ -17,9 +17,7 @@ it:
 
 Argument names are those of the client's own methods (hooks.py), so a call is written in full even when a client
 update adds arguments. Shell hits get the hit points decoded by the client's DamageFromShotDecoder and the state of the
-victim (position, turret and gun angles, modules); explosions and health changes get the victim state too. A vehicle
-whose suspension tilts its hull (siege mode, hydraulic chassis, hull pitch aiming: Strv 103, ...) gets its suspension
-state as well, to find where the client keeps the tilt.
+victim (position, turret and gun angles, modules); explosions and health changes get the victim state too.
 
 The file is written while the battle goes, one JSON object per line:
 - "battle": the first line, the battle;
@@ -45,7 +43,6 @@ from PlayerEvents import g_playerEvents
 from Vehicle import Vehicle
 from VehicleEffects import DamageFromShotDecoder
 from items import vehicles
-from vehicle_systems.tankStructure import TankPartNames
 
 from gui.mods.sagtary_armor_hits.config import RECORDS_DIR
 
@@ -56,9 +53,6 @@ _AVATAR_METHODS = ('showTracer', 'stopTracer', 'explodeProjectile', 'showShotRes
                    'showVehicleDamageInfo', 'showOtherVehicleDamagedDevices', 'updateVehicleHealth',
                    'onBattleEvents', 'battleEventsSummary')
 _MAX_DEPTH = 8
-_PARTS = (TankPartNames.CHASSIS, TankPartNames.HULL, TankPartNames.TURRET, TankPartNames.GUN)
-# Vehicles whose suspension components were described in the client's log.
-_described = set()
 
 
 def _plain(value, depth=0):
@@ -127,61 +121,6 @@ def _vehicleState(vehicle):
             state['gunMatrix'] = _plain(Math.Matrix(appearance.gunMatrix))
         except Exception:
             _logger.debug('debug: no matrices for vehicle %s', vehicle.id, exc_info=True)
-        if descriptor is not None and (descriptor.hasSiegeMode or descriptor.hasHydraulicChassis or
-                                       descriptor.isPitchHullAimingAvailable):
-            state['suspension'] = _suspensionState(vehicle, descriptor, appearance)
-    return state
-
-
-def _relative(matrix, base):
-    # The matrix in the space of base.
-    inverted = Math.Matrix(base)
-    inverted.invert()
-    result = Math.Matrix(matrix)
-    result.postMultiply(inverted)
-    return result
-
-
-def _describeSuspension(vehicle, appearance):
-    # The names the suspension components have, once per vehicle: they are the client's C types, without sources.
-    if vehicle.id in _described:
-        return
-    _described.add(vehicle.id)
-    for name in ('suspension', 'leveredSuspension'):
-        component = getattr(appearance, name, None)
-        names = [key for key in dir(component) if not key.startswith('_')] if component is not None else None
-        _logger.info('debug: vehicle %s %s: %s', vehicle.id, name, names)
-    vehicleFilter = getattr(vehicle, 'filter', None)
-    _logger.info('debug: vehicle %s filter: %s', vehicle.id,
-                 [key for key in dir(vehicleFilter) if not key.startswith('_')] if vehicleFilter is not None else None)
-
-
-def _suspensionState(vehicle, descriptor, appearance):
-    # How the suspension tilts the hull: the vehicle's matrix by the ground (the filter's, the chassis collision
-    # takes it), the model's matrix, the world matrices of the parts' nodes and the hull's in the ground matrix's space.
-    state = {
-        'siegeState': getattr(vehicle, 'siegeState', None),
-        'springsLength': _plain(getattr(descriptor.chassis, 'suspensionSpringsLength', None)),
-    }
-    try:
-        ground = Math.Matrix(vehicle.filter.groundPlacingMatrix)
-        model = Math.Matrix(appearance.compoundModel.matrix)
-        nodes = {part: Math.Matrix(appearance.compoundModel.node(TankPartNames.getActualNodeNameByPartName(part)))
-                 for part in _PARTS}
-        state.update({
-            'groundMatrix': _plain(ground),
-            'modelMatrix': _plain(model),
-            'nodes': {part: _plain(matrix) for part, matrix in nodes.items()},
-            'modelInGround': _plain(_relative(model, ground)),
-            'hullInGround': _plain(_relative(nodes[TankPartNames.HULL], ground)),
-            'hullInChassis': _plain(_relative(nodes[TankPartNames.HULL], nodes[TankPartNames.CHASSIS])),
-        })
-    except Exception:
-        _logger.debug('debug: no suspension state for vehicle %s', vehicle.id, exc_info=True)
-    try:
-        _describeSuspension(vehicle, appearance)
-    except Exception:
-        _logger.debug('debug: no suspension names for vehicle %s', vehicle.id, exc_info=True)
     return state
 
 

@@ -70,19 +70,11 @@ def _partMatrix(vehicle, part):
 
 
 def _vehiclePose(vehicle):
-    # The vehicle's pose as the client shows it; None without its model. The hull's matrix in the chassis space only
-    # for a vehicle whose hull moves on its chassis.
+    # The vehicle's pose as the client shows it; None without its model.
     if getattr(vehicle, 'appearance', None) is None:
         return None
     try:
-        descriptor, hullMatrix = vehicle.typeDescriptor, None
-        if descriptor.hasSiegeMode or descriptor.hasHydraulicChassis or descriptor.isPitchHullAimingAvailable:
-            chassis, hull = _partMatrix(vehicle, TankPartIndexes.CHASSIS), _partMatrix(vehicle, TankPartIndexes.HULL)
-            if chassis is not None and hull is not None:
-                chassis.invert()
-                hull.postMultiply(chassis)
-                hullMatrix = hull
-        return hit_parser.vehiclePose(vehicle.getAimParams(), hullMatrix, vehicle.wheelsSteeringSmoothed)
+        return hit_parser.vehiclePose(vehicle.getAimParams())
     except Exception:
         _logger.exception('hits: no pose of vehicle %s', vehicle.id)
         return None

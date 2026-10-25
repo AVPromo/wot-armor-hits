@@ -97,19 +97,10 @@ def splashHit(damage, center):
     return Hit(shellType=SHELL_TYPES.HIGH_EXPLOSIVE, damage=damage or 0, isSplash=True, splashCenter=center)
 
 
-def vehiclePose(aimParams, hullMatrix, wheelSteeringAngles):
-    # The hit vehicle's pose. aimParams: (turret yaw, gun pitch) as Vehicle.getAimParams gives them; hullMatrix: the
-    # hull's matrix in the chassis space (Math.Matrix), None for a vehicle whose hull does not move on its chassis;
-    # wheelSteeringAngles: of the steered wheels.
+def vehiclePose(aimParams):
+    # The hit vehicle's pose. aimParams: (turret yaw, gun pitch) as Vehicle.getAimParams gives them.
     turretYaw, gunPitch = aimParams
-    hullPosition, hullRotation = (), ()
-    if hullMatrix is not None:
-        hullPosition = vector(hullMatrix.translation)
-        hullRotation = tuple(round(value, _ANGLE_DECIMALS)
-                             for value in (hullMatrix.yaw, hullMatrix.pitch, hullMatrix.roll))
-    return VehiclePose(turretYaw=round(turretYaw, _ANGLE_DECIMALS), gunPitch=round(gunPitch, _ANGLE_DECIMALS),
-                       hullPosition=hullPosition, hullRotation=hullRotation,
-                       wheelSteeringAngles=tuple(round(angle, _ANGLE_DECIMALS) for angle in wheelSteeringAngles or ()))
+    return VehiclePose(turretYaw=round(turretYaw, _ANGLE_DECIMALS), gunPitch=round(gunPitch, _ANGLE_DECIMALS))
 
 
 def eventSide(eventType):
