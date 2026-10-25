@@ -162,6 +162,21 @@ class ScrollView {
         this.update();
     }
 
+    // Scrolls the least so that the part of the list from top, height high (pixels), is in view.
+    reveal(top, height) {
+        const content = this.content;
+        const view = content.clientHeight;
+        if (!view) {
+            return;
+        }
+        if (top < content.scrollTop) {
+            content.scrollTop = top;
+        } else if (top + height > content.scrollTop + view) {
+            content.scrollTop = top + height - view;
+        }
+        this.update();
+    }
+
     update() {
         const content = this.content;
         const range = this.range();
@@ -313,7 +328,10 @@ document.addEventListener("keydown", (event) => {
 const hitsPanel = document.querySelector(".hitsPanel");
 const hitsFilters = hitsPanel.querySelector(".hitsPanel__filters");
 const hitsList = hitsPanel.querySelector(".hitsPanel__items");
-new ScrollView(hitsPanel.querySelector(".hitsPanel__list"));
+const hitsScroll = new ScrollView(hitsPanel.querySelector(".hitsPanel__list"));
+// Rem a row of the list takes: .hitsPanel__row's height, its top border inside it (Gameface lays boxes out with the
+// borders inside the height: the rows are 28 pixels apart on the screen).
+const HIT_ROW_REM = 28;
 
 function hitIcon(kind, side) {
     return element("div", `hitIcon hitIcon__${kind}__${side}`);
@@ -383,6 +401,12 @@ function drawHitsPanel() {
         row.addEventListener("click", () => window.model.hitsPanel.onHit({ index }));
         hitsList.appendChild(row);
     });
+    // The selected hit in view (the steps, a hit chosen elsewhere). Its place comes from its number: the rows are all
+    // as high, and Gameface lays the new rows out a few frames later.
+    if (model.selectedHit >= 0 && model.selectedHit < hits.length) {
+        const rowHeight = viewEnv.remToPx(HIT_ROW_REM);
+        hitsScroll.reveal(model.selectedHit * rowHeight, rowHeight);
+    }
 }
 
 hitsPanel.querySelectorAll(".hitsPanel__tab").forEach((tab) => {

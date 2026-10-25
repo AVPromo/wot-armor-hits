@@ -18,7 +18,7 @@ from gui.mods.sagtary_armor_hits.views.hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.trace import mainLogger, setVerbose
 from gui.mods.sagtary_armor_hits.views.lobby_button.lobby_button import LobbyButton
 
-__version__ = '0.200.0'
+__version__ = '0.202.0'
 
 _logger = logging.getLogger('sagtary.armor_hits')
 

@@ -464,6 +464,7 @@ body {
     overflow: hidden;
 }
 
+/* Its height is HIT_ROW_REM of HitsView.js: change them together. */
 .hitsPanel__row {
     position: relative;
     display: flex;
