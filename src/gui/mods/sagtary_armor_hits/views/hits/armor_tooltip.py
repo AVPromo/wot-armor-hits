@@ -146,7 +146,7 @@ class ArmorTooltipPresenter(object):
         if status == WindowStatus.LOADED:
             self._warmUp()
         elif status == WindowStatus.DESTROYED:
-            self._destroy()
+            self._destroy(isDestroyed=True)
 
     def _warmUp(self):
         # The window off the screen filled with the armor along the camera's ray to the vehicle's middle.
@@ -176,14 +176,17 @@ class ArmorTooltipPresenter(object):
         self._shown = False
         GUI.switchArmorInspectorCursor(False)
 
-    def _destroy(self):
+    def _destroy(self, isDestroyed=False):
+        # isDestroyed: the window is gone already (the client closed it), its page with it.
         tooltip, self._tooltip = self._tooltip, None
         if tooltip is None:
             return
         calls('armor tooltip: destroy')
         tooltip.onStatusChanged -= self._onStatusChanged
-        tooltip.content.onStatusChanged -= self._onViewStatusChanged
-        tooltip.destroy()
+        if tooltip.content is not None:
+            tooltip.content.onStatusChanged -= self._onViewStatusChanged
+        if not isDestroyed:
+            tooltip.destroy()
         self._entity = None
         if self._shown:
             GUI.switchArmorInspectorCursor(False)

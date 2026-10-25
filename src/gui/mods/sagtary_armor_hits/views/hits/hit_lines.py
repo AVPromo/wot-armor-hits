@@ -9,7 +9,8 @@ drawer (scene_lines.py): over the client's armor overlay, hidden behind the vehi
 
 With the shooter view on, the hangar camera looks along the chosen hit's shell at its first point
 (HangarCameraSystem.moveCamera); turned off, the camera goes back to its place (resetCameraTarget). The scene panel's
-reset puts the camera back the same way: behind the shell with the shooter view on, else to its place.
+reset puts the camera back the same way: behind the shell with the shooter view on, else to its place. Closing the
+screen with the shooter view on puts the camera back to its place at once, else the hangar keeps turning around the hit.
 
 When it draws: a hit is chosen and the hangar already shows its vehicle, loaded: at once; otherwise the hangar
 vehicle presenter has asked for the vehicle, and the lines are drawn when the hangar tells it has loaded it
@@ -280,6 +281,8 @@ class HitLinesPresenter(object):
         self._hitsPanel.onChanged -= self._update
         self.__hangarSpace.onVehicleChanged -= self._onVehicleChanged
         self.__hangarSpace.onVehicleChangeStarted -= self._onVehicleChangeStarted
+        if self._cameraMoved:
+            self._resetCamera(0)
         self._clear()
         self._resetPose()
         self.onDrawn.clear()
@@ -431,11 +434,11 @@ class HitLinesPresenter(object):
                           duration=_CAMERA_FLIGHT)
         self._cameraMoved = True
 
-    def _resetCamera(self):
+    def _resetCamera(self, duration=_CAMERA_FLIGHT):
         self._cameraMoved = False
         camera = CGF.getSystem(self.__hangarSpace.spaceID, HangarCameraSystem)
         if camera is not None:
-            camera.resetCameraTarget(duration=_CAMERA_FLIGHT)
+            camera.resetCameraTarget(duration=duration)
 
     def _clear(self):
         # Removes the lines and forgets the drawing that waits for the collision model.
