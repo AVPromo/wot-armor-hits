@@ -48,6 +48,14 @@ def _basis(axis):
     return first, _cross(axis, first)
 
 
+def ringPoints(centre, axis, ringRadius, count):
+    # count points evenly round a circle of ringRadius around the axis through the centre, the first on the same side
+    # for every circle of the axis.
+    first, second = _basis(_unit(axis))
+    return [centre + (first * math.cos(angle) + second * math.sin(angle)) * ringRadius
+            for angle in (2.0 * math.pi * index / count for index in range(count))]
+
+
 class SceneLines(object):
 
     def __init__(self):
@@ -85,10 +93,8 @@ class SceneLines(object):
 
     def ring(self, centre, axis, ringRadius, colour, radius):
         # A circle of ringRadius around the axis through the centre.
-        first, second = _basis(_unit(axis))
-        points = [centre + (first * math.cos(angle) + second * math.sin(angle)) * ringRadius
-                  for angle in (2.0 * math.pi * index / _RING_STEPS for index in range(_RING_STEPS + 1))]
-        for start, end in zip(points, points[1:]):
+        points = ringPoints(centre, axis, ringRadius, _RING_STEPS)
+        for start, end in zip(points, points[1:] + points[:1]):
             self.tube(start, end, colour, radius)
 
     def clear(self):

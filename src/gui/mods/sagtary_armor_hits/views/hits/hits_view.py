@@ -97,7 +97,7 @@ class HitsView(ViewComponent):
         self._presenters.append(HangarScenePresenter())
         # The scene panel's choices: which lines are drawn over that vehicle, the shooter view.
         scenePanel = ScenePanelPresenter(model.scenePanel, {
-            'current': text('lines/current'), 'shooter': text('camera/shooter'),
+            'lines': text('lines/title'), 'allHits': text('lines/all'), 'shooter': text('camera/shooter'),
             'reset': text('camera/reset')}, hitsPanel)
         self._presenters.append(scenePanel)
         hitLines = HitLinesPresenter(hitsPanel, scenePanel)

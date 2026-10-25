@@ -375,10 +375,10 @@ document.addEventListener("keydown", (event) => {
     }
 });
 
-// Scene panel: lines of all the shown hits or of the chosen one (onLines), the shooter view (onShooterView), from
-// window.model.scenePanel.
+// Scene panel: the lines group (a check box: the lines of all the shown hits or of the chosen one, onLines), the camera
+// group (the shooter view's check box, onShooterView; the reset, onResetCamera), from window.model.scenePanel.
 const scenePanel = document.querySelector(".scenePanel");
-const sceneSegments = scenePanel.querySelectorAll(".scenePanel__segment");
+const sceneAllLines = scenePanel.querySelector(".scenePanel__allLines");
 const sceneShooter = scenePanel.querySelector(".scenePanel__shooter");
 const sceneReset = scenePanel.querySelector(".scenePanel__reset");
 
@@ -387,23 +387,19 @@ function drawScenePanel() {
     if (!model) {
         return;
     }
-    for (let index = 0; index < sceneSegments.length; index++) {
-        const segment = sceneSegments[index];
-        const all = segment.getAttribute("data-all") === "1";
-        segment.textContent = all ? model.allLabel : model.currentLabel;
-        segment.classList.toggle("scenePanel__segmentSelected", all === Boolean(model.allLines));
-    }
-    sceneShooter.querySelector(".scenePanel__shooterLabel").textContent = model.shooterLabel;
-    sceneReset.querySelector(".scenePanel__resetLabel").textContent = model.resetLabel;
-    // On the dealt side only the chosen hit's line is drawn: no choice of lines to show.
+    scenePanel.querySelector(".scenePanel__linesTitle").textContent = model.linesTitle;
+    scenePanel.querySelector(".scenePanel__allLabel").textContent = model.allLabel;
+    scenePanel.querySelector(".scenePanel__cameraTitle").textContent = model.cameraTitle;
+    scenePanel.querySelector(".scenePanel__shooterLabel").textContent = model.shooterLabel;
+    scenePanel.querySelector(".scenePanel__resetLabel").textContent = model.resetLabel;
+    sceneAllLines.classList.toggle("scenePanel__checkOn", Boolean(model.allLines));
+    sceneShooter.classList.toggle("scenePanel__checkOn", Boolean(model.shooterView));
+    // On the dealt side only the chosen hit's line is drawn: no lines group.
     scenePanel.classList.toggle("scenePanel__oneLine", !model.allLinesEnabled);
-    sceneShooter.classList.toggle("scenePanel__shooterOn", Boolean(model.shooterView));
 }
 
-for (let index = 0; index < sceneSegments.length; index++) {
-    const all = sceneSegments[index].getAttribute("data-all") === "1";
-    sceneSegments[index].addEventListener("click", () => window.model.scenePanel.onLines({ all }));
-}
+sceneAllLines.addEventListener("click", () =>
+    window.model.scenePanel.onLines({ all: !window.model.scenePanel.allLines }));
 sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
 sceneReset.addEventListener("click", () => window.model.scenePanel.onResetCamera());
 

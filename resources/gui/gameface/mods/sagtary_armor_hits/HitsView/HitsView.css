@@ -912,8 +912,9 @@ body {
     position: relative;
 }
 
-/* Scene panel at the bottom, in the middle of the scene: lines of all hits or of the chosen one, the shooter
-   view. Its items look like the hits panel's tabs: upper case, the chosen one with the orange line under it. */
+/* Scene panel at the bottom, in the middle of the scene: two groups side by side, each on its own plate with its title
+   above: the lines (a check box) and the camera (the shooter view's check box, a line, the reset). The check boxes are
+   the settings menu's. */
 .scenePanel {
     position: absolute;
     bottom: 14rem;
@@ -921,117 +922,111 @@ body {
     transform: translateX(-50%);
     display: flex;
     align-items: stretch;
-    height: 42rem;
-    background-color: rgba(14, 16, 18, 0.9);
-    border: 1rem solid rgba(255, 255, 255, 0.1);
     pointer-events: auto;
 }
 
-/* The lines' icon instead of a label: two slanted shell ways, grey, not a button. */
-.scenePanel__linesIcon {
-    position: relative;
-    width: 18rem;
-    margin: 0 8rem 0 16rem;
-}
-
-.scenePanel__linesStroke {
-    position: absolute;
-    height: 2rem;
-    background-color: #8b8c8f;
-    transform: rotate(-35deg);
-}
-
-.scenePanel__linesStrokeLong {
-    top: 16rem;
-    left: 0;
-    width: 18rem;
-}
-
-.scenePanel__linesStrokeShort {
-    top: 22rem;
-    left: 6rem;
-    width: 12rem;
-}
-
-.scenePanel__segments {
+.scenePanel__group {
     display: flex;
+    flex-direction: column;
+    padding: 7rem 12rem 3rem 14rem;
+    background-color: rgba(14, 16, 18, 0.9);
+    border: 1rem solid rgba(255, 255, 255, 0.1);
 }
 
-.scenePanel__segment,
-.scenePanel__shooter {
-    display: flex;
-    align-items: center;
-    padding: 0 16rem;
-    font-size: 13rem;
+.scenePanel__camera {
+    margin-left: 6rem;
+}
+
+/* The dealt side: the hits are on other vehicles each, so only the chosen hit's line and no lines group. */
+.scenePanel__oneLine .scenePanel__lines {
+    display: none;
+}
+
+.scenePanel__oneLine .scenePanel__camera {
+    margin-left: 0;
+}
+
+.scenePanel__title {
+    font-size: 11rem;
+    line-height: 14rem;
     font-weight: bold;
     text-transform: uppercase;
     color: var(--color-general-tertiary);
-    border-top: 3rem solid transparent;
-    border-bottom: 3rem solid transparent;
+}
+
+.scenePanel__row {
+    display: flex;
+    align-items: center;
+}
+
+.scenePanel__check,
+.scenePanel__reset {
+    display: flex;
+    align-items: center;
+    height: 32rem;
     cursor: pointer;
 }
 
-.scenePanel__segment:hover,
-.scenePanel__shooter:hover {
-    color: var(--color-general-secondary);
-    background-color: rgba(255, 255, 255, 0.04);
+.scenePanel__box {
+    position: relative;
+    width: 14rem;
+    height: 14rem;
+    flex-shrink: 0;
+    margin-right: 10rem;
+    box-sizing: border-box;
+    border: 1rem solid rgba(255, 255, 255, 0.35);
 }
 
-.scenePanel__segmentSelected,
-.scenePanel__segmentSelected:hover,
-.scenePanel__shooterOn,
-.scenePanel__shooterOn:hover {
-    color: var(--color-general-primary);
-    border-bottom-color: #e0a248;
-    background-color: rgba(224, 162, 72, 0.1);
+.scenePanel__checkOn .scenePanel__box {
+    border-color: #e0a248;
+    background-color: rgba(224, 162, 72, 0.25);
 }
 
-/* The dealt side: the hits are on other vehicles each, so only the chosen hit's line and no choice of lines. */
-.scenePanel__oneLine .scenePanel__linesIcon,
-.scenePanel__oneLine .scenePanel__segments,
-.scenePanel__oneLine .scenePanel__divider {
+/* The check: two sides of a rotated box. */
+.scenePanel__tick {
     display: none;
+    position: absolute;
+    left: 4rem;
+    top: 1rem;
+    width: 4rem;
+    height: 8rem;
+    border-right: 2rem solid #f2c47e;
+    border-bottom: 2rem solid #f2c47e;
+    transform: rotate(45deg);
+}
+
+.scenePanel__checkOn .scenePanel__tick {
+    display: block;
+}
+
+.scenePanel__label {
+    font-size: 14rem;
+    white-space: nowrap;
+    color: var(--color-general-secondary);
+}
+
+.scenePanel__check:hover .scenePanel__label,
+.scenePanel__reset:hover .scenePanel__label,
+.scenePanel__checkOn .scenePanel__label {
+    color: var(--color-general-primary);
 }
 
 .scenePanel__divider {
     width: 1rem;
-    margin: 9rem 4rem;
+    height: 22rem;
+    margin: 0 14rem;
     background-color: rgba(255, 255, 255, 0.12);
 }
 
-/* The reset's divider stays on the dealt side too. */
-.scenePanel__oneLine .scenePanel__resetDivider {
-    display: block;
-}
-
-/* The camera reset: a button like the shooter view's, with a circular arrow; it has no on state. */
-.scenePanel__reset {
-    display: flex;
-    align-items: center;
-    padding: 0 16rem;
-    font-size: 13rem;
-    font-weight: bold;
-    text-transform: uppercase;
-    color: var(--color-general-tertiary);
-    border-top: 3rem solid transparent;
-    border-bottom: 3rem solid transparent;
-    cursor: pointer;
-}
-
-.scenePanel__reset:hover {
-    color: var(--color-general-secondary);
-    background-color: rgba(255, 255, 255, 0.04);
-}
-
-.scenePanel__reset:active {
-    color: var(--color-general-primary);
+.scenePanel__reset:active .scenePanel__label {
+    color: #e0a248;
 }
 
 .scenePanel__resetIcon {
     position: relative;
     width: 16rem;
     height: 16rem;
-    margin-right: 8rem;
+    margin-right: 7rem;
 }
 
 /* Three quarters of a ring, open at the top right, and an arrow head at its end. */
@@ -1066,78 +1061,6 @@ body {
 
 .scenePanel__reset:hover .scenePanel__resetHead {
     border-left-color: #c8c8c8;
-}
-
-/* The sight of the shooter view: a ring with four ticks, grey, orange when the view is on. */
-.scenePanel__sight {
-    position: relative;
-    width: 16rem;
-    height: 16rem;
-    margin-right: 8rem;
-}
-
-.scenePanel__sightRing {
-    position: absolute;
-    top: 3rem;
-    left: 3rem;
-    width: 10rem;
-    height: 10rem;
-    box-sizing: border-box;
-    border: 1.5rem solid #8b8c8f;
-    border-radius: 50%;
-}
-
-.scenePanel__sightTick {
-    position: absolute;
-    background-color: #8b8c8f;
-}
-
-.scenePanel__sightTop,
-.scenePanel__sightBottom {
-    left: 7rem;
-    width: 2rem;
-    height: 4rem;
-}
-
-.scenePanel__sightTop {
-    top: 0;
-}
-
-.scenePanel__sightBottom {
-    bottom: 0;
-}
-
-.scenePanel__sightLeft,
-.scenePanel__sightRight {
-    top: 7rem;
-    width: 4rem;
-    height: 2rem;
-}
-
-.scenePanel__sightLeft {
-    left: 0;
-}
-
-.scenePanel__sightRight {
-    right: 0;
-}
-
-.scenePanel__shooter:hover .scenePanel__sightRing {
-    border-color: #c8c8c8;
-}
-
-.scenePanel__shooter:hover .scenePanel__sightTick {
-    background-color: #c8c8c8;
-}
-
-.scenePanel__shooterOn .scenePanel__sightRing,
-.scenePanel__shooterOn:hover .scenePanel__sightRing {
-    border-color: #e0a248;
-}
-
-.scenePanel__shooterOn .scenePanel__sightTick,
-.scenePanel__shooterOn:hover .scenePanel__sightTick {
-    background-color: #e0a248;
 }
 
 /* Shot panel on the right: the vehicle cards of the shooter and the target, the result row, the sections. */
