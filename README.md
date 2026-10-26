@@ -56,8 +56,8 @@ Check that OpenWG Gameface is installed for the same game version.
 1. [Create an issue](https://github.com/pavel-bolhovitin/wot-armor-hits/issues/new/choose) and pick **Bug report**.
 2. Tell what you did, what you expected and what happened instead. A screenshot helps.
 3. Attach `game.log` from the `[WoT game directory]` folder.
-4. For a problem with the hits of a battle: turn on **Debug** in the settings, play such a battle again and attach
-   its file from `[WoT game directory]/mods/sagtary_armor_hits/debug/`.
+4. For a problem with the hits of a battle: select the battle, click **Save battle** in the settings and attach its
+   file `hits_<number>.json` from `[WoT game directory]/mods/sagtary_armor_hits/hits/`.
 
 No GitHub account? Write in the comments of the mod's page on WGMods.
 

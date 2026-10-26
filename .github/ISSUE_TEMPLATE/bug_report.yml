@@ -19,7 +19,11 @@ body:
     id: log
     attributes:
       label: game.log
+      description: Drag game.log from the game folder (where WorldOfTanks.exe is) here.
+  - type: textarea
+    id: hits
+    attributes:
+      label: Battle file
       description: >-
-        Drag game.log from the game folder (where WorldOfTanks.exe is) here. For a problem with the hits of a battle,
-        turn on Debug in the mod's settings, play such a battle again and also attach its file from
-        mods/sagtary_armor_hits/debug/.
+        For a problem with the hits of a battle: select the battle, click Save battle in the mod's settings and drag
+        its file hits_<number>.json from mods/sagtary_armor_hits/hits/ in the game folder here.

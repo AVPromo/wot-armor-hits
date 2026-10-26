@@ -19,10 +19,12 @@ hangar starts to change the vehicle (onVehicleChangeStarted) and drawn again whe
 
 Before the lines are drawn, the hangar vehicle turns its turret and gun as the chosen hit's vehicle had them at the hit
 (Hit.vehiclePose), the way the client's armor screen turns them (armor_sub_presenter: the turret rotator, the gun's
-angle); without a chosen hit or its pose they go back to the hangar's own pose. A fixed turret or gun stays. The parts'
-nodes have the new pose from the next frame on, so the lines are drawn then. A point and the shell's direction are in
-their part's space and are drawn by the part's node: they turn with it. The other hits' lines are drawn in the chosen
-hit's pose.
+angle); without a chosen hit or its pose they go back to the hangar's own pose. A fixed turret or gun stays. A point
+and the shell's direction are in their part's space and are drawn by the part's node: they turn with it. The parts'
+nodes take the new pose when a next frame is drawn, sometimes after the lines are first put, so the lines are put
+again on every frame by the nodes as they are then (SceneLines.follow): they follow the parts. When the chosen hit's
+first point moves so, the shot panel is told again (onDrawn) and the shooter view's camera flies to it. The other
+hits' lines are drawn in the chosen hit's pose.
 
 The way of a shell, from its points on the vehicle's own parts (Hit.vehiclePoints): a piece of _LEAD metres before
 the first point, along the shell's direction there; a piece to the next point after a ricochet or spaced armor,
@@ -71,9 +73,8 @@ _RICOCHET = 1.5
 _GROUND = 0.02
 _NORMAL_RETRY = 0.2
 _NORMAL_TRIES = 5
-# Radians a turret or a gun may be off a pose and be in it; the drawings that wait for the vehicle to take a pose.
-_POSE_EPS = 1e-4
-_POSE_TRIES = 2
+# Metres the chosen hit's first point (or its shell direction, a unit vector) may move and be at the same place.
+_SHOT_EPS = 1e-3
 # The shooter view: the camera's distance to the hit point in metres and its flight in seconds.
 _SHOOTER_DISTANCE = 6.0
 _CAMERA_FLIGHT = 0.5
@@ -120,20 +121,20 @@ def _armorNormal(collisions, point):
 
 def _setPose(entity, pose):
     # Turns the hangar vehicle's turret and gun as a hit's vehicle had them (VehiclePose), or back to the hangar's own
-    # pose for None; whether one of them moved.
+    # pose for None.
     appearance = getattr(entity, 'appearance', None)
     rotator = getattr(appearance, 'turretRotator', None) if appearance is not None else None
     if rotator is None:
-        return False
-    gun, turretYaw = entity.typeDescriptor.gun, rotator.turretYaw
+        return
+    gun = entity.typeDescriptor.gun
     if pose is None:
         appearance.rotateTurretForAnchor(None, 0.0)
-        gunMoved = appearance.rotateGunToDefault()
-    else:
-        if gun.staticTurretYaw is None:
-            rotator.start(pose.turretYaw, 0.0)
-        gunMoved = gun.staticPitch is None and appearance.rotateGunForAngle(pose.gunPitch)
-    return abs(rotator.turretYaw - turretYaw) > _POSE_EPS or bool(gunMoved)
+        appearance.rotateGunToDefault()
+        return
+    if gun.staticTurretYaw is None:
+        rotator.start(pose.turretYaw, 0.0)
+    if gun.staticPitch is None:
+        appearance.rotateGunForAngle(pose.gunPitch)
 
 
 def _poseText(compoundModel):
@@ -188,44 +189,66 @@ class Way(object):
         self.splash = None
 
 
-def _hitWay(hit, compoundModel, collisions):
-    # (the hit's Way, whether a ricochet's way out waits for the collision model).
+def _wayPoints(hit):
+    # The points of the hit's way: a high explosive shell bursts at its first one.
+    return hit.vehiclePoints[:1] if hit.shellType == SHELL_TYPES.HIGH_EXPLOSIVE else hit.vehiclePoints
+
+
+def _ricochetNormals(hits, collisions):
+    # ({id of a point: the armor's normal there in its part's space} for the hits' last points that are ricochets,
+    # whether one of them waits for the collision model).
+    normals, waits = {}, False
+    for hit in hits:
+        points = _wayPoints(hit)
+        if not points or points[-1].effectCode not in _RICOCHETS:
+            continue
+        normal = _armorNormal(collisions, points[-1])
+        if normal is None:
+            waits = True
+        else:
+            normals[id(points[-1])] = normal
+    return normals, waits
+
+
+def _shotMoved(old, new):
+    # Whether the chosen hit's (first point, shell direction) is not where it was.
+    if old is None or new is None:
+        return old is not new
+    return (old[0] - new[0]).length > _SHOT_EPS or (old[1] - new[1]).length > _SHOT_EPS
+
+
+def _hitWay(hit, compoundModel, normals):
+    # The hit's Way by the parts' nodes as they are now; normals: the armor's normals of _ricochetNormals.
     way = Way()
     if not hit.vehiclePoints and hit.splashCenter:
         way.splash, way.first = _splashWay(hit, compoundModel)
-        return way, False
+        return way
     points = []
-    for point in hit.vehiclePoints:
+    for point in _wayPoints(hit):
         start, end = Math.Vector3(*point.start), Math.Vector3(*point.end)
         matrix = _partNode(compoundModel, point.tankPartIndex)
         if matrix is None or (end - start).length < 1e-6:
             continue
         points.append((point, matrix, matrix.applyPoint((start + end) * 0.5), _unit(matrix.applyVector(end - start))))
-    if hit.shellType == SHELL_TYPES.HIGH_EXPLOSIVE:
-        points = points[:1]
     if not points:
-        return way, False
+        return way
     if hit.shotDirection:
         point, matrix, position, _ = points[0]
         points[0] = (point, matrix, position, _unit(matrix.applyVector(Math.Vector3(*hit.shotDirection))))
     way.lead = (points[0][2] - points[0][3] * _LEAD, points[0][2])
     way.first = (points[0][2], points[0][3])
-    waitsNormal = False
     for previous, current in zip(points, points[1:]):
         if previous[0].effectCode not in _GOES_ON:
             break
         way.links.append((previous[2], current[2]))
     else:
         point, matrix, position, direction = points[-1]
-        if point.effectCode in _RICOCHETS:
-            normal = _armorNormal(collisions, point)
-            if normal is not None:
-                normal = _unit(matrix.applyVector(normal))
-                mirrored = _unit(direction - normal * (2 * direction.dot(normal)))
-                way.out = (position, position + mirrored * _RICOCHET)
-            else:
-                waitsNormal = True
-    return way, waitsNormal
+        normal = normals.get(id(point))
+        if point.effectCode in _RICOCHETS and normal is not None:
+            normal = _unit(matrix.applyVector(normal))
+            mirrored = _unit(direction - normal * (2 * direction.dot(normal)))
+            way.out = (position, position + mirrored * _RICOCHET)
+    return way
 
 
 def _checkPoints(hit, collisions):
@@ -260,7 +283,8 @@ class HitLinesPresenter(object):
         # The next drawing while the collision model has not come, and how many were done for that.
         self._callbackID = None
         self._normalTries = 0
-        self._poseTries = 0
+        # onDrawn was told while the lines were put (the chosen hit's first point moved).
+        self._told = False
         # The camera was moved for the shooter view.
         self._cameraMoved = False
         # (first point, shell direction) of the chosen hit as last drawn, None without it; told by onDrawn.
@@ -377,47 +401,50 @@ class HitLinesPresenter(object):
     def _drawOn(self, reason, compoundModel, collisions):
         _, chosen, others = self._target
         pose = chosen.vehiclePose if chosen is not None else None
-        if _setPose(self.__hangarSpace.getVehicleEntity(), pose) and self._poseTries < _POSE_TRIES:
-            self._poseTries += 1
-            _logger.info('scene: hit lines: %s: the vehicle takes the pose %s, drawn on the next frame', reason,
-                         'of the hit' if pose is not None else 'of the hangar')
-            self._callbackID = BigWorld.callback(0.0, self._onPosed)
-            return
-        waitsNormal = False
-        for hit in others:
-            way, waits = _hitWay(hit, compoundModel, collisions)
-            waitsNormal = waitsNormal or waits
-            drawWay(self._lines, way, False)
-        first = None
-        if chosen is not None:
-            way, waits = _hitWay(chosen, compoundModel, collisions)
-            waitsNormal = waitsNormal or waits
-            first = way.first
-            drawWay(self._lines, way, True)
-            if chosen.splashCenter and not chosen.vehiclePoints:
-                _logger.info('check: hit lines: splash at %s of the chassis', chosen.splashCenter)
+        _setPose(self.__hangarSpace.getVehicleEntity(), pose)
+        normals, waitsNormal = _ricochetNormals(list(others) + ([chosen] if chosen is not None else []), collisions)
+        self._told = False
+        self._lines.follow(lambda lines: self._putWays(lines, chosen, others, compoundModel, normals))
         if waitsNormal and self._normalTries < _NORMAL_TRIES:
             self._normalTries += 1
             self._callbackID = BigWorld.callback(_NORMAL_RETRY, self._onNormalRetry)
-        if first is not None and self._scenePanel.shooterView:
-            self._moveCamera(*first)
         if chosen is not None:
+            if chosen.splashCenter and not chosen.vehiclePoints:
+                _logger.info('check: hit lines: splash at %s of the chassis', chosen.splashCenter)
             entity = self.__hangarSpace.getVehicleEntity()
             _logger.info('check: hit lines: drawn on %s', modulesText(getattr(entity, 'typeDescriptor', None)))
             _checkPoints(chosen, collisions)
             _logger.info('check: hit lines: pose of the hit: %s; of the hangar vehicle: %s',
                          'turret %.4f, gun %.4f' % (pose.turretYaw, pose.gunPitch) if pose is not None else None,
                          _poseText(compoundModel))
-        self.chosenShot = first
-        calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
-        self.onDrawn()
+        if not self._told:
+            calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
+            self.onDrawn()
+        first = self.chosenShot
         _logger.info('scene: hit lines: %s: %d shapes, %d other hits, chosen hit at %s, direction %s',
                      reason, len(self._lines), len(others),
                      _text(first[0]) if first else None, _text(first[1]) if first else None)
 
-    def _onPosed(self):
-        self._callbackID = None
-        self._draw('vehicle posed')
+    def _putWays(self, lines, chosen, others, compoundModel, normals):
+        # The hits' ways into the lines by the parts' nodes as they are now (on every frame); when the chosen hit's
+        # first point moves, it tells onDrawn and the shooter view's camera flies there.
+        for hit in others:
+            drawWay(lines, _hitWay(hit, compoundModel, normals), False)
+        if chosen is None:
+            return
+        way = _hitWay(chosen, compoundModel, normals)
+        drawWay(lines, way, True)
+        if not _shotMoved(self.chosenShot, way.first):
+            return
+        if self.chosenShot is not None:
+            _logger.info('scene: hit lines: the chosen hit moved with the vehicle\'s parts to %s',
+                         _text(way.first[0]) if way.first else None)
+        self.chosenShot = way.first
+        self._told = True
+        if way.first is not None and self._scenePanel.shooterView:
+            self._moveCamera(*way.first)
+        calls('hit lines: onDrawn', 'drawn, %d listeners' % len(self.onDrawn))
+        self.onDrawn()
 
     def _onNormalRetry(self):
         self._callbackID = None
@@ -446,7 +473,6 @@ class HitLinesPresenter(object):
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
         self._normalTries = 0
-        self._poseTries = 0
         self._lines.clear()
         calls('hit lines: clear', 'chosen line %s' % (self.chosenShot is not None))
         if self.chosenShot is not None:

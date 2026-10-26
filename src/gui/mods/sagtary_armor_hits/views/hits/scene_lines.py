@@ -5,7 +5,8 @@ The client's armor overlay (armor_inspector) colors the vehicle after the scene'
 any shader. The client's debug drawer (the native DebugDrawer module, used by the hangar camera alignment tools)
 draws in a pass of its own after it, so its shapes stay over the overlay; tested against the scene's depth (zTest),
 they are still hidden behind the vehicle. Its shapes last one frame, so SceneLines draws them again on every frame
-(BigWorld.callback) while it has some.
+(BigWorld.callback) while it has some. Shapes that follow something that moves (follow) are put again on every frame
+before they are drawn.
 
 The debug drawer has cylinders and spheres; SceneLines builds the others from cylinders: a dashed tube (dashes of
 _DASH metres in colors in turn, or gaps) and a ring (a circle of short cylinders around an axis).
@@ -63,6 +64,9 @@ class SceneLines(object):
         # wireframe).
         self._shapes = []
         self._callbackID = None
+        # build(lines): puts the shapes again on every frame (follow); None: the shapes stay as they were put.
+        self._build = None
+        self._building = False
 
     def __len__(self):
         return len(self._shapes)
@@ -97,21 +101,40 @@ class SceneLines(object):
         for start, end in zip(points, points[1:] + points[:1]):
             self.tube(start, end, colour, radius)
 
+    def follow(self, build):
+        # The shapes build(lines) puts, put again on every frame before they are drawn: they follow what they are on
+        # (the vehicle's parts, while they turn).
+        self.clear()
+        self._build = build
+        self._rebuild()
+        self._start()
+
     def clear(self):
         self._shapes = []
+        self._build = None
         if self._callbackID is not None:
             BigWorld.cancelCallback(self._callbackID)
             self._callbackID = None
 
     def _start(self):
-        if self._callbackID is None:
+        if self._callbackID is None and not self._building:
             self._callbackID = BigWorld.callback(0.0, self._onFrame)
+
+    def _rebuild(self):
+        self._shapes = []
+        self._building = True
+        try:
+            self._build(self)
+        finally:
+            self._building = False
 
     def _onFrame(self):
         self._callbackID = None
-        if not self._shapes:
-            return
         try:
+            if self._build is not None:
+                self._rebuild()
+            if not self._shapes:
+                return
             import DebugDrawer
             for shape in self._shapes:
                 if shape[0] == 'tube':
