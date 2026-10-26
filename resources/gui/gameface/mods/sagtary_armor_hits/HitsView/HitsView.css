@@ -1396,7 +1396,7 @@ body {
     position: absolute;
     left: 0;
     top: 36rem;
-    width: 300rem;
+    width: 340rem;
     padding: 10rem 0 6rem;
     background-color: rgba(14, 16, 18, 0.96);
     border: 1rem solid rgba(255, 255, 255, 0.1);
@@ -1477,6 +1477,66 @@ body {
     font-size: 12rem;
     line-height: 15rem;
     color: var(--color-general-tertiary);
+}
+
+/* How the battles of each group of modes are kept: under a line, a row a group, its name and three choices in a
+   frame, the chosen one in the check box's accent. */
+.settingsMenu__modes {
+    margin-top: 6rem;
+    padding-top: 10rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.08);
+}
+
+.settingsMenu__modesTitle {
+    padding: 0 14rem 6rem;
+    font-size: 13rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--color-general-primary);
+}
+
+.settingsMenu__mode {
+    display: flex;
+    align-items: center;
+    padding: 5rem 14rem;
+}
+
+.settingsMenu__modeLabel {
+    flex-grow: 1;
+    min-width: 0;
+    font-size: 14rem;
+    line-height: 17rem;
+    color: var(--color-general-secondary);
+}
+
+/* The frame: its left side is the first choice's border. */
+.settingsMenu__choices {
+    display: flex;
+    flex-shrink: 0;
+    margin-left: 10rem;
+    border-top: 1rem solid rgba(255, 255, 255, 0.2);
+    border-right: 1rem solid rgba(255, 255, 255, 0.2);
+    border-bottom: 1rem solid rgba(255, 255, 255, 0.2);
+}
+
+.settingsMenu__choice {
+    padding: 3rem 8rem;
+    font-size: 12rem;
+    line-height: 16rem;
+    color: var(--color-general-tertiary);
+    border-left: 1rem solid rgba(255, 255, 255, 0.2);
+    cursor: pointer;
+}
+
+.settingsMenu__choice:hover {
+    color: var(--color-general-secondary);
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.settingsMenu__choiceSelected,
+.settingsMenu__choiceSelected:hover {
+    color: var(--color-general-primary);
+    background-color: rgba(224, 162, 72, 0.25);
 }
 
 /* Scroll view (HitsView.js): the list scrolls in its box, the bar right of it shows when the list does not fit. The

@@ -7,7 +7,8 @@
   when the list changes (onChanged). The store is not saved by itself; battle_file.py writes and reads it on demand.
 - BattleCollector: adds a Battle to the store when the player enters a battle or starts a replay, and writes the
   winner to it when the round finishes. A battle the player left before its end has no winner (result UNKNOWN). It
-  tells its listeners when the player leaves the battle (onBattleLeft, with the battle as it is in the store).
+  tells its listeners when the player leaves the battle (onBattleLeft, with the battle as it is in the store). A
+  battle that is not to be kept (isKept: the battleModes setting) is not added, so its hits are not collected.
 """
 import logging
 import time
@@ -147,9 +148,11 @@ class BattleStore(object):
 
 class BattleCollector(object):
 
-    def __init__(self, store):
+    def __init__(self, store, isKept=None):
+        # isKept(battle): whether a battle is added to the store; None: every battle.
         self._store = store
-        # Id of the battle the player is in, None out of battle.
+        self._isKept = isKept
+        # Id of the battle the player is in, None out of battle or in a battle not kept.
         self._battleId = None
         self.onBattleLeft = Event()
 
@@ -168,6 +171,9 @@ class BattleCollector(object):
             battle = battleFromAvatar(BigWorld.player())
         except Exception:
             _logger.exception('battles: cannot read the battle')
+            return
+        if self._isKept is not None and not self._isKept(battle):
+            _logger.info('battles: %s not kept (battle type %s)', battle.battleId, battle.battleType)
             return
         self._battleId = battle.battleId
         self._store.add(battle)

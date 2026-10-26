@@ -9,6 +9,7 @@ from PlayerEvents import g_playerEvents
 
 from gui.mods.sagtary_armor_hits import settings
 from gui.mods.sagtary_armor_hits.config import BATTLE_FILES_DIR
+from gui.mods.sagtary_armor_hits.data import battle_modes
 from gui.mods.sagtary_armor_hits.data.battle_file import BattleFileError, BattleFiles
 from gui.mods.sagtary_armor_hits.data.battles import BattleCollector, BattleStore
 from gui.mods.sagtary_armor_hits.data.debug_recorder import DebugRecorder
@@ -18,7 +19,7 @@ from gui.mods.sagtary_armor_hits.views.hits.hits_screen import HitsScreen
 from gui.mods.sagtary_armor_hits.trace import mainLogger, setVerbose
 from gui.mods.sagtary_armor_hits.views.lobby_button.lobby_button import LobbyButton
 
-__version__ = '0.202.0'
+__version__ = '0.206.0'
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -35,8 +36,20 @@ _settings = settings.ModSettings()
 _hooks = ClientHooks()
 # On only with the "debug" setting.
 _debugRecorder = DebugRecorder(_hooks)
+
+
+def _saving(battle):
+    # How the battle is kept, by the battleModes setting of its mode's group.
+    return battle_modes.savingOf(_settings.values['battleModes'], battle.battleType)
+
+
+def _isKept(battle):
+    # A battle is kept unless its group's setting is off; a replay always, to look at its hits.
+    return battle.isReplay or _saving(battle) != battle_modes.OFF
+
+
 _battleStore = BattleStore()
-_battleCollector = BattleCollector(_battleStore)
+_battleCollector = BattleCollector(_battleStore, _isKept)
 _hitCollector = HitCollector(_battleStore, _hooks)
 # The battle files of the hits screen's save and load buttons.
 _battleFiles = BattleFiles(BATTLE_FILES_DIR, __version__)
@@ -58,9 +71,9 @@ def _onSettingChanged(key):
 
 
 def _onBattleLeft(battle):
-    # The battle's file when the player leaves a battle, with the autoSaveBattles setting; a replay is not saved (it
-    # would write over the file of the battle played).
-    if not _settings.values['autoSaveBattles'] or battle.isReplay:
+    # The battle's file when the player leaves a battle of a group kept in files (battleModes); a replay is not saved
+    # (it would write over the file of the battle played).
+    if battle.isReplay or _saving(battle) != battle_modes.FILE:
         return
     try:
         _battleFiles.save(battle)

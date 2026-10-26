@@ -13,9 +13,9 @@ DEFAULT_SETTINGS = {
     'debug': False,
     # Show the hits on allies (and of allies on the player) in the hits list; they do no damage.
     'showFriendlyFire': False,
-    # Save every battle played (not a replay) to its battle file in BATTLE_FILES_DIR when the player leaves it, as the
-    # save button does.
-    'autoSaveBattles': False,
+    # How the battles of each group of modes (data/battle_modes.py) are kept: "off" not at all, "session" until the
+    # game closes, "file" also in their battle files in BATTLE_FILES_DIR when the player leaves them (not a replay).
+    'battleModes': {'random': 'session', 'competitive': 'session', 'training': 'off', 'fun': 'off', 'other': 'off'},
 }
 
 # Debug records (one JSON Lines file per battle), relative to the game folder.
@@ -74,7 +74,15 @@ TEXTS = {
         'shot/distanceLoss': u'for the distance of %(distance)s m',
         'shot/deviation': u'from the average',
         'settings/showFriendlyFire': u'Show friendly fire',
-        'settings/autoSaveBattles': u'Save battles automatically',
+        'settings/battleModes': u'Keep battles',
+        'settings/random': u'Random',
+        'settings/competitive': u'Competitive',
+        'settings/training': u'Training',
+        'settings/fun': u'Fun and events',
+        'settings/other': u'Other',
+        'settings/off': u'Off',
+        'settings/session': u'Session',
+        'settings/file': u'To disk',
         'settings/showButtonInModsMenu': u'Show the button in the mods menu',
         'settings/debug': u'Debug',
         'settings/restart': u'(game restart required)',
@@ -112,7 +120,15 @@ TEXTS = {
         'shot/distanceLoss': u'за дистанцию %(distance)s м',
         'shot/deviation': u'от среднего',
         'settings/showFriendlyFire': u'Показывать огонь по своим',
-        'settings/autoSaveBattles': u'Автоматически сохранять бои',
+        'settings/battleModes': u'Хранение боёв',
+        'settings/random': u'Случайные',
+        'settings/competitive': u'Соревновательные',
+        'settings/training': u'Тренировки',
+        'settings/fun': u'Развлекательные',
+        'settings/other': u'Остальные',
+        'settings/off': u'Выкл',
+        'settings/session': u'Сессия',
+        'settings/file': u'На диск',
         'settings/showButtonInModsMenu': u'Показывать кнопку в меню модов',
         'settings/debug': u'Дебаг',
         'settings/restart': u'(требуется перезапуск игры)',

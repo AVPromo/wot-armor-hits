@@ -49,8 +49,9 @@ _SHOT_TEXTS = ('shot/shooter', 'shot/target', 'shot/damage', 'shot/penetration',
                'shot/distance', 'shot/crits', 'shot/avgDamage', 'shot/avgPenetration',
                'shot/chance', 'shot/nominal', 'shot/angleArmor', 'shot/ricochet', 'shot/distanceLoss', 'shot/deviation')
 # The settings menu's texts.
-_SETTINGS_TEXTS = ('settings/showFriendlyFire', 'settings/autoSaveBattles', 'settings/showButtonInModsMenu',
-                   'settings/debug', 'settings/restart')
+_SETTINGS_TEXTS = ('settings/showFriendlyFire', 'settings/showButtonInModsMenu', 'settings/debug', 'settings/restart',
+                   'settings/battleModes', 'settings/random', 'settings/competitive', 'settings/training',
+                   'settings/fun', 'settings/other', 'settings/off', 'settings/session', 'settings/file')
 
 
 class HitsView(ViewComponent):

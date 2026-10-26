@@ -11,6 +11,7 @@ import os
 from Event import Event
 
 from gui.mods.sagtary_armor_hits.config import DEFAULT_SETTINGS, SETTINGS_PATH
+from gui.mods.sagtary_armor_hits.data import battle_modes
 
 _logger = logging.getLogger('sagtary.armor_hits')
 
@@ -50,6 +51,8 @@ def load():
             _logger.warning('settings: %r must be %s, using the default', key, type(DEFAULT_SETTINGS[key]).__name__)
         else:
             settings[key] = value
+    # A group of battleModes missing or of a wrong value keeps its default.
+    settings['battleModes'] = battle_modes.normalized(settings['battleModes'])
     return settings
 
 

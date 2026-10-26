@@ -526,11 +526,13 @@ sceneAllLines.addEventListener("click", () =>
 sceneShooter.addEventListener("click", () => window.model.scenePanel.onShooterView());
 sceneReset.addEventListener("click", () => window.model.scenePanel.onResetCamera());
 
-// Settings menu: the gear right of the battle selector opens it, a click on a setting turns it over (onToggle), a click elsewhere or
-// Escape closes it (window.model.settingsMenu).
+// Settings menu: the gear right of the battle selector opens it, a click on a setting turns it over (onToggle), a click
+// on a choice of a group of modes sets how its battles are kept (onBattleMode), a click elsewhere or Escape closes it
+// (window.model.settingsMenu).
 const settingsButton = document.querySelector(".settingsButton");
 const settingsMenu = settingsButton.querySelector(".settingsMenu");
 const settingsItems = settingsMenu.querySelector(".settingsMenu__items");
+const settingsModes = settingsMenu.querySelector(".settingsMenu__modeRows");
 
 function setSettingsOpen(open) {
     settingsButton.classList.toggle("settingsButton__open", open);
@@ -562,6 +564,24 @@ function drawSettingsMenu() {
         const key = item.key;
         row.addEventListener("click", () => window.model.settingsMenu.onToggle({ key }));
         settingsItems.appendChild(row);
+    });
+
+    settingsMenu.querySelector(".settingsMenu__modesTitle").textContent = model.modesTitle;
+    const savings = [["off", model.offLabel], ["session", model.sessionLabel], ["file", model.fileLabel]];
+    settingsModes.textContent = "";
+    arrayItems(model.modes).forEach((mode) => {
+        const row = element("div", "settingsMenu__mode");
+        row.appendChild(element("div", "settingsMenu__modeLabel", mode.label));
+        const choices = element("div", "settingsMenu__choices");
+        const group = mode.group;
+        savings.forEach(([saving, label]) => {
+            const choice = element("div", "settingsMenu__choice", label);
+            choice.classList.toggle("settingsMenu__choiceSelected", saving === mode.saving);
+            choice.addEventListener("click", () => window.model.settingsMenu.onBattleMode({ group, saving }));
+            choices.appendChild(choice);
+        });
+        row.appendChild(choices);
+        settingsModes.appendChild(row);
     });
 }
 
@@ -739,7 +759,7 @@ function draw() {
 // selection) is told to the observers of that part's path.
 engine.whenReady.then(() => {
     const paths = ["model", "model.battleSelector", "model.hitsPanel", "model.fileButtons", "model.overlayPanel",
-        "model.scenePanel", "model.shotPanel", "model.settingsMenu", "model.settingsMenu.items",
+        "model.scenePanel", "model.shotPanel", "model.settingsMenu", "model.settingsMenu.items", "model.settingsMenu.modes",
         "model.shotPanel.shooter", "model.shotPanel.target", "model.shotPanel.sections", "model.shotPanel.devices",
         "model.shotPanel.shooter.modules", "model.shotPanel.target.modules"];
     const callbackIDs = paths.map((path) =>

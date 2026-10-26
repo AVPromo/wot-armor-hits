@@ -33,7 +33,13 @@ Work in progress. Now the mod:
 
 ```json
 {
-    "autoSaveBattles": false,
+    "battleModes": {
+        "competitive": "session",
+        "fun": "off",
+        "other": "off",
+        "random": "session",
+        "training": "off"
+    },
     "debug": false,
     "showButtonInModsMenu": true,
     "showFriendlyFire": false
@@ -45,8 +51,12 @@ Work in progress. Now the mod:
 - `showFriendlyFire`: `true` shows the hits on allies and of allies in the hits list (they do no damage).
 - `debug`: `true` writes the debug record of every battle into `mods/sagtary_armor_hits/debug` and the mod's detailed
   lines into `game.log`; `false` leaves there only the start, the battle files, warnings and errors.
-- `autoSaveBattles`: `true` saves every battle played (not a replay) to its file in `mods/sagtary_armor_hits/hits` when
-  you leave the battle, as the save button does.
+- `battleModes`: how the battles of each group of modes are kept: `"off"` not at all (the hits screen does not get
+  them), `"session"` until the game closes, `"file"` also in their files in `mods/sagtary_armor_hits/hits` when you
+  leave the battle, as the save button does (not a replay). The groups: `random` (random battles, grand battles,
+  Mapbox), `competitive` (ranked, Onslaught, team battles, Stronghold), `training` (training rooms and the modes'
+  trainings), `fun` (Frontline, Steel Hunter, special modes, events), `other` (any other mode, the new ones too). A
+  replay is always shown. The settings menu sets them for the next battles.
 
 The battle files in `mods/sagtary_armor_hits/hits` are loaded when the hangar shows the first time after the game
 starts. The delete button of the settings menu deletes all the battles and their files, after a question.
