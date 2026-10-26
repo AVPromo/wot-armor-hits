@@ -193,6 +193,9 @@ class OverlayPanelPresenter(object):
         calls('overlay panel: remove', 'overlay on %s' % (gameObject is not None))
         if gameObject is None:
             return
+        if self.__hangarSpace.spaceID is None:
+            # The hangar space is gone (the client closes it before the screen on exit), and the overlay with it.
+            return
         try:
             from cgf_components.armor_inspector_component import ArmorInspectorComponent
             if gameObject.findWrite(ArmorInspectorComponent) is not None:

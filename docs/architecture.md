@@ -67,8 +67,8 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/hits/settings_menu.py`             | presenter of the settings menu: the mod's settings (hits on allies, the lobby button's place, the debug record), how the battles of each group of modes are kept (off, session, file), and the file buttons, opened by the gear right of the battle selector; a click writes the settings file (`settings.ModSettings`) |
 | `views/hits/hit_lines.py`                 | presenter of the hit lines: the chosen hit's way (`Way`: lead, pieces on, ricochet's way out, splash) in the 3D scene over the hangar vehicle, turned to the hit's pose (turret yaw, gun pitch) first |
 | `views/hits/hit_way.py`                   | the look of a hit's way: a solid white line to the first point, white dashes after a ricochet or spaced armor, at the line's start a white dot and rings as a cone back towards the shooter |
-| `views/hits/scene_lines.py`               | shapes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay: tubes, dashed tubes (with gaps), spheres, rings |
-| `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state, while the update flow is worked out |
+| `views/hits/scene_lines.py`               | shapes in the 3D scene drawn every frame with the client's debug drawer (`DebugDrawer`), over the armor overlay: tubes, dashed tubes (with gaps), spheres, rings; shapes that follow the vehicle's parts are put again before every frame (`follow`) |
+| `views/hits/scene_log.py`                 | log of the scene (prefix `scene:`): the client's hangar vehicle events with the vehicle's state |
 | `views/hits/overlay_panel.py`             | presenter of the overlay panel: the armor page's three overlay types (client texts) and the client's armor overlay on the hangar vehicle |
 | `views/hits/shot_panel.py`                | presenter of the shot panel: the chosen hit's shooter and target cards (vehicle; icons of the shooter's gun and shell, the target's turret and gun, with the client's module and shell tooltips), result, and sections (damage, penetration, armor and angle counted in the garage, distance, modules and crew: on a hit on the player's vehicle the battle damage panel's icons copied into `gui/maps/sagtary_armor_hits/modules/`, a tile per module kind and crew role that shot damaged, in rows of four, the crew under them, with the client's names of the damaged parts and crew members under the icon in their state's color) |
 | `views/hits/armor_tooltip.py`             | presenter of the armor tooltip: the client's armor page tooltip (`ArmorTooltipWindow`) for the armor under the mouse, with the chosen hit's shell |
@@ -85,14 +85,6 @@ UI (`views/`), a package per screen or button. The view models, the data the Gam
 | `views/models/overlay_panel_model.py`     | view models of the overlay panel and its types               |
 | `views/models/shot_panel_model.py`        | view models of the shot panel: vehicle cards, modules, sections and their lines |
 | `views/models/scene_panel_model.py`       | view model of the scene panel                                |
-
-Planned, as the features come (after Poliroid's Battle Hits, which does the same job):
-
-| Part              | Will do                                                                     |
-|-------------------|-----------------------------------------------------------------------------|
-| storage           | keep the hits of the last battles between sessions                          |
-| hangar scene      | show the vehicle in the hangar with the hit points on its armor             |
-| viewer screen     | hits of the selected battle on the hits screen                              |
 
 ## Lobby button
 
@@ -162,15 +154,18 @@ The screen is built like the client's vehicle armor page (Vehicle Hub, `VehicleH
   their parts (`DamageFromShotDecoder.parseHitPoint`: the part and the shell's way through it); a point is the middle
   of that way and the shell's direction is along it, like the Battle Hits mod does, put into the scene by the part's
   node (the node the client puts the hit effects on). Before that the hangar vehicle turns its turret and gun as the
-  hit's vehicle had them (`Hit.vehiclePose`), like the client's armor screen turns them, and the lines are drawn on
-  the next frame, when the nodes have the pose; without a chosen hit the vehicle goes back to the hangar's pose. The
-  vehicle's collision model is used only for the armor's
-  normal at a last ricochet: it comes a few frames after the vehicle and answers with wrong points before that.
+  hit's vehicle had them (`Hit.vehiclePose`), like the client's armor screen turns them; without a chosen hit the
+  vehicle goes back to the hangar's pose. The nodes take a new pose when a next frame is drawn, sometimes after the
+  lines are first put, so the lines are put again before every frame by the nodes as they are then
+  (`SceneLines.follow`) and follow the turret and the gun; when the chosen hit's first point moves so, the shot panel
+  and the shooter view get it again. The vehicle's collision model is used only for the armor's normal at a last
+  ricochet (once, kept in the part's space): it comes a few frames after the vehicle and answers with wrong points
+  before that.
   When: at once if the hangar already shows the hit's vehicle, loaded; else on `HangarSpace.onVehicleChanged` after
   the hangar vehicle presenter asked for it (the parts are in their places then); the lines go on
   `onVehicleChangeStarted` and on another hit. All in white (`hit_way.py`): a solid line to the first point, dashes
   with gaps after a ricochet or spaced armor, at the line's start a dot and rings as a cone back towards the shooter;
-  the other hits' ways ("All" lines) thinner, with one ring; a line is a cylinder 18 mm thick (12 mm for the others)
+  the other hits' ways ("All" lines) thinner, without the dot and the rings; a line is a cylinder 18 mm thick (12 mm for the others)
   drawn with the client's debug drawer (`DebugDrawer.DebugDrawer().cylinder()`, tested against the scene's depth, so the vehicle
   hides what is behind it), again on every frame. The debug drawer draws after the client's armor overlay, which
   covers every scene model whatever its shader (`glow.fx`, `glow_noalpha.fx`, opaque `lightonly.fx` were tried). The way:

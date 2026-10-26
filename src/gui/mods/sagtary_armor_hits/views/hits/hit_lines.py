@@ -452,9 +452,14 @@ class HitLinesPresenter(object):
         self._lines.clear()
         self._draw('ricochet normal')
 
+    def _cameraSystem(self):
+        # The hangar camera, None when the hangar space is gone (the client closes it before the screen on exit).
+        spaceID = self.__hangarSpace.spaceID
+        return CGF.getSystem(spaceID, HangarCameraSystem) if spaceID is not None else None
+
     def _moveCamera(self, position, direction):
         # The shooter view: the camera behind the shell, looking along it at its first point.
-        camera = CGF.getSystem(self.__hangarSpace.spaceID, HangarCameraSystem)
+        camera = self._cameraSystem()
         if camera is None:
             return
         camera.moveCamera(targetPos=position, yaw=direction.yaw, pitch=-direction.pitch, distance=_SHOOTER_DISTANCE,
@@ -463,7 +468,7 @@ class HitLinesPresenter(object):
 
     def _resetCamera(self, duration=_CAMERA_FLIGHT):
         self._cameraMoved = False
-        camera = CGF.getSystem(self.__hangarSpace.spaceID, HangarCameraSystem)
+        camera = self._cameraSystem()
         if camera is not None:
             camera.resetCameraTarget(duration=duration)
 
