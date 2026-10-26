@@ -342,7 +342,8 @@ class ShotPanelPresenter(object):
             self._check(battle, side, hit, gunShot, armor, waits)
         except Exception:
             _logger.exception('shot panel: cannot check the hit')
-        myName = getattr(BigWorld.player(), 'name', '') or ''
+        # The name of the player who played the battle, not of the one who watches it.
+        myName = battle.playerName
         if side == DEALT:
             shooter = (battle.vehicleId, battle.vehicleDescriptor, myName)
             target = (hit.vehicleId, hit.vehicleDescriptor, hit.playerName)

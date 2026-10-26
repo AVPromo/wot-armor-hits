@@ -54,6 +54,7 @@ class Battle(Record):
                                 # the player's vehicle compact descriptor (type and modules), hex; '' when not known
         ('startedAt', 0.0),     # when the player entered the battle, Unix time in seconds
         ('isReplay', False),    # a replay watched, not a battle played
+        ('playerName', ''),     # the name of the player who played the battle (in a replay, the recorded one)
         ('playerTeam', None),   # the player's team, 1 or 2; None when not known
         ('winnerTeam', None),   # the team that won, 1 or 2, DRAW_TEAM for a draw; None when not known
         ('endReason', None),    # how the battle ended (constants.FINISH_REASON); None when not known
@@ -81,9 +82,10 @@ class Battle(Record):
 def battleFromAvatar(player):
     # The battle the player has just entered, read from the client.
     arena = player.arena
+    vehicleInfo = (arena.vehicles.get(player.playerVehicleID) or {}) if arena is not None else {}
     descriptor = getattr(player, 'vehicleTypeDescriptor', None)
-    if descriptor is None and arena is not None:
-        descriptor = (arena.vehicles.get(player.playerVehicleID) or {}).get('vehicleType')
+    if descriptor is None:
+        descriptor = vehicleInfo.get('vehicleType')
     return Battle(
         battleId=player.arenaUniqueID,
         mapId=player.arenaTypeID & _MAP_ID_MASK,
@@ -91,6 +93,7 @@ def battleFromAvatar(player):
         battleType=player.arenaGuiType,
         startedAt=time.time(),
         isReplay=BattleReplay.isPlaying(),
+        playerName=vehicleInfo.get('name') or getattr(player, 'name', '') or '',
         playerTeam=player.team,
         vehicleDescriptor=compactDescriptor(descriptor),
     )

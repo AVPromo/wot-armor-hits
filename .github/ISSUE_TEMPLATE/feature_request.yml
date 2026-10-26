@@ -1,0 +1,11 @@
+name: Idea
+description: Suggest something new or a change to the mod.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: What the mod should do and why it helps you. A picture or a sketch helps.
+    validations:
+      required: true

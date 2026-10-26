@@ -1,0 +1,25 @@
+name: Bug report
+description: Something in the mod does not work as it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what happened instead. A screenshot helps.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Mod version
+      description: From the file name, for example sagtary.armor_hits_1.0.0.wotmod.
+      placeholder: 1.0.0
+  - type: textarea
+    id: log
+    attributes:
+      label: game.log
+      description: >-
+        Drag game.log from the game folder (where WorldOfTanks.exe is) here. For a problem with the hits of a battle,
+        turn on Debug in the mod's settings, play such a battle again and also attach its file from
+        mods/sagtary_armor_hits/debug/.
