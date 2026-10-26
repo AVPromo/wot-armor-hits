@@ -2,11 +2,11 @@
 
 See every hit of your battles on your tank in the hangar: where you were hit, where your shells went, and why.
 
-![Hits on me: the shell's way, the shooter, the armor and the angle](docs/screen-on-me.png)
+![Hits on me: the shell's way, the shooter, the armor and the angle](docs/screen-on-me.jpg)
 
 <p>
-  <img src="docs/screen-by-me.png" width="49%" alt="Hits by me: a ricochet off the turret">
-  <img src="docs/screen-shooter-view.png" width="49%" alt="Shooter view: the camera along the shell">
+  <img src="docs/screen-by-me.jpg" width="49%" alt="Hits by me: a ricochet off the turret">
+  <img src="docs/screen-shooter-view.jpg" width="49%" alt="Shooter view: the camera along the shell">
 </p>
 
 ## Features
