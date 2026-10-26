@@ -1,80 +1,54 @@
 # Armor Hits by Sagtary
 
-A World of Tanks mod for the hangar: see every hit of your battles on the 3D vehicle, where you were hit and where
-your shells went.
+See every hit of your battles on your tank in the hangar: where you were hit, where your shells went, and why.
 
-The mod adds the **Armor Hits** button to the hangar. It opens a screen like the game's armor page: the vehicle of the
-battle in 3D, the list of its hits and the details of each one.
+![Hits on me: the shell's way, the shooter, the armor and the angle](docs/screen-on-me.png)
 
-> [!IMPORTANT]
-> **Found a bug or have an idea?**
-> [Create an issue](https://github.com/pavel-bolhovitin/wot-armor-hits/issues/new/choose) and pick **Bug report** or
-> **Idea**. Or write in the comments of the mod's page on WGMods.
-
-## Installation
-
-![Installation: copy the mods folder from the archive into the game folder](docs/install-guide.png)
-
-Without the archive:
-
-1. Install [OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) and
-   [ModsList API](https://gitlab.com/wot-public-mods/mods-list).
-2. Copy `sagtary.armor_hits_<version>.wotmod` into `[WoT game directory]/mods/2.4.1.0/`.
-3. Start the game. The **Armor Hits** button is in the hangar.
+<p>
+  <img src="docs/screen-by-me.png" width="49%" alt="Hits by me: a ricochet off the turret">
+  <img src="docs/screen-shooter-view.png" width="49%" alt="Shooter view: the camera along the shell">
+</p>
 
 ## Features
 
-- **Battles**: the battles of this game session, newest first, up to 50, and the battles you saved to disk.
-- **On me / By me**: the hits you received and the hits you dealt, with filters by result (damage, blocked,
-  ricochet, no damage) and their counts.
-- **The hit in 3D**: the vehicle with its turret and gun turned as at the moment of the hit, and the shell's way to
-  the armor: a white line, dashes after a ricochet or spaced armor, rings pointing back to the shooter.
-- **Lines**: the way of the chosen hit only, or of all hits on you at once.
-- **Shooter view**: the camera looks along the shell, from the shooter's side.
-- **Armor views** of the game: no armor, nominal armor, penetration; the game's armor tooltip under the mouse, for the
-  shell of the chosen hit.
-- **Details**: shooter and target, shell, result, damage, penetration, armor and impact angle, distance, damaged
-  modules and crew.
-- **Keep battles**: off, for the session or on disk, by groups of modes.
+- **On me / By me**: hits you received and dealt, filtered by damage, blocked, ricochet, no damage.
+- **3D way of the shell** on the tank, turret and gun turned as at the moment of the hit.
+- **Shooter view**: the camera looks along the shell.
+- **Details**: damage, penetration, armor, impact angle, distance, damaged modules and crew.
+- **Game's armor views** and armor tooltip for the shell of the hit.
+- **Battles kept** for the session or on disk, by mode: Random, Competitive, Training, Fun and events, Other.
+
+## Installation
+
+![Copy the mods folder from the archive into the game folder](docs/install-guide.png)
+
+Without the archive: install [OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) and
+[ModsList API](https://gitlab.com/wot-public-mods/mods-list), then copy `sagtary.armor_hits_<version>.wotmod` into
+`[WoT game directory]/mods/2.4.1.0/`.
 
 ## Requirements
 
-- World of Tanks EU client 2.4.1.0
-- [OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) (already in the archive, no need to download it)
-- [ModsList API](https://gitlab.com/wot-public-mods/mods-list) (already in the archive, no need to download it)
+- World of Tanks EU 2.4.1.0
+- [OpenWG Gameface](https://gitlab.com/openwg/wot.gameface) and
+  [ModsList API](https://gitlab.com/wot-public-mods/mods-list), included in the archive
 
 ## FAQ
 
-**Why is my last battle not in the list?**
-Its mode group is set to **Off** in **Keep battles**. By default only Random and Competitive battles are kept.
+**My last battle is not in the list.** Its mode is set to **Off** in **Keep battles** (the gear next to the battle
+list). By default only Random and Competitive battles are kept.
 
-**I do not see the Armor Hits button.**
-Check that OpenWG Gameface is installed for the same game version.
+**No Armor Hits button.** Check that the files are in the folders shown in the installation picture.
 
 ## Report a bug
 
-1. [Create an issue](https://github.com/pavel-bolhovitin/wot-armor-hits/issues/new/choose) and pick **Bug report**.
-2. Tell what you did, what you expected and what happened instead. A screenshot helps.
-3. Attach `game.log` from the `[WoT game directory]` folder.
-4. For a problem with the hits of a battle: select the battle, click **Save battle** in the settings and attach its
-   file `hits_<number>.json` from `[WoT game directory]/mods/sagtary_armor_hits/hits/`.
-
-No GitHub account? Write in the comments of the mod's page on WGMods.
+[Create an issue](https://github.com/pavel-bolhovitin/wot-armor-hits/issues/new/choose) and pick **Bug report** or
+**Idea**. No GitHub account? Write in the comments on WGMods.
 
 ## For developers
 
-Build with Python 2.7, the game's Python version:
-
 ```text
 C:\Python27\python.exe build.py            # build/sagtary.armor_hits_<version>.wotmod
-C:\Python27\python.exe build.py --install  # also copy it into <game>/mods/<client version>/
+C:\Python27\python.exe build.py --install  # also copy it into the game; WOT_DIR sets the game folder
 ```
 
-The game folder is `D:\programs\World_of_Tanks_EU`; set `WOT_DIR` for another one. The client version is read from
-`version.xml` in the game folder.
-
-The code layout is in [docs/architecture.md](docs/architecture.md).
-
-## License
-
-MIT, see [LICENSE](LICENSE).
+Code layout: [docs/architecture.md](docs/architecture.md). License: [MIT](LICENSE).
